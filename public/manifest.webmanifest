@@ -1,0 +1,23 @@
+{
+  "name": "Anadolu Stratejisi",
+  "short_name": "Anadolu",
+  "description": "Turkiye haritasi uzerinde oynanan iki kisilik sira tabanli strateji oyunu.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b141f",
+  "theme_color": "#112031",
+  "icons": [
+    {
+      "src": "/icons/pwa-any.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/pwa-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="144" fill="#101d2a"/>
+  <rect x="44" y="44" width="424" height="424" rx="118" fill="#13283d"/>
+  <circle cx="256" cy="256" r="156" fill="#0b141f" stroke="#f4c95d" stroke-width="16"/>
+  <path d="M160 300l52-78 70 38 82-72 0 148-204 0z" fill="#4ea1ff"/>
+  <path d="M256 274l58-46 78 56 0 52-136 0z" fill="#ff6b6b"/>
+  <text x="256" y="148" font-size="54" text-anchor="middle" fill="#f4c95d" font-family="Avenir Next, Trebuchet MS, sans-serif">AS</text>
+</svg>
