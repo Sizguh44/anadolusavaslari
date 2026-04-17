@@ -111,7 +111,7 @@ export const RULES = {
     capitalEnergyCost: 0,
     supportPerCity: 0,
     supportMax: 0,
-    fortDefensePerLevel: 1,
+    fortDefensePerLevel: 2,
     capitalDefenseBonus: 1,
     supplyDefenseBonus: 0,
     successfulCaptureMinimumArmy: 1,

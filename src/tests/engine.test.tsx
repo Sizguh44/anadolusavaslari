@@ -223,7 +223,7 @@ describe('ilhak, intikal ve saldırı', () => {
     expect(state.stage).toBe('GAME_OVER')
     expect(state.winner).toBe('P1')
     expect(state.victorySummary?.cityId).toBe('34')
-    expect(state.victorySummary?.survivors).toBe(4)
+    expect(state.victorySummary?.survivors).toBe(2)
   })
 })
 

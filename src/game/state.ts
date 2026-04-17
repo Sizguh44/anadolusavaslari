@@ -11,6 +11,7 @@ export const STARTING_TREASURY = 2000
 export const ARMY_COST = 1000
 export const FORT_COST = 1000
 export const CAPITAL_DEFENSE_BONUS = 1
+export const WALL_ARMY_EQUIVALENT = 2
 
 export const PLAYER_META: Record<
   PlayerId,
@@ -615,11 +616,15 @@ export function getCurrentPreview(state: GameState): AttackPreview | null {
     return null
   }
 
-  const fortBroken = Math.min(target.fortLevel, Math.floor(attackAmount / 2))
-  const fortAfter = target.fortLevel - fortBroken
+  const wallDefense = target.fortLevel * WALL_ARMY_EQUIVALENT
   const capitalBonus = getCapitalDefenseBonus(target)
-  const defensePower = target.army + fortAfter + capitalBonus
+  const defensePower = target.army + wallDefense + capitalBonus
+  const willCapture = attackAmount > defensePower
   const survivors = Math.max(0, attackAmount - defensePower)
+  const fortBroken = willCapture
+    ? target.fortLevel
+    : Math.min(target.fortLevel, Math.floor(attackAmount / 2))
+  const fortAfter = target.fortLevel - fortBroken
 
   return {
     attackAmount,
@@ -632,7 +637,7 @@ export function getCurrentPreview(state: GameState): AttackPreview | null {
     capitalBonus,
     defensePower,
     survivors,
-    willCapture: attackAmount > defensePower,
+    willCapture,
   }
 }
 
