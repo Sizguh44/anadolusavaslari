@@ -21,6 +21,7 @@ import type { ActionMode, AttackPreview, CityState, EventTone, GameAction, GameS
 export const GAME_STATE_VERSION = 3
 export const STARTING_CAPITAL_ARMY = 6
 export const STARTING_CAPITAL_FORT = 1
+export const CAPITAL_BASE_TAX = 200
 export const NEUTRAL_CAPTURE_GARRISON = 1
 export const CITY_ARMY_LIMIT = 50
 export const CITY_FORT_LIMIT = 10
@@ -426,6 +427,7 @@ function confirmCapital(state: GameState): GameState {
           owner: activePlayer,
           isCapital: true,
           fortLevel: STARTING_CAPITAL_FORT,
+          baseTax: CAPITAL_BASE_TAX,
         },
         STARTING_CAPITAL_ARMY,
         0,
@@ -1591,6 +1593,10 @@ function applyYatirim(state: GameState, targetCityId: string): GameState {
 
   if (target.owner !== state.currentPlayer) {
     return withStatus(state, 'Yatırım yalnızca kendi şehirlerinizde yapılabilir.', 'warning')
+  }
+
+  if (target.isCapital) {
+    return withStatus(state, `${target.name} başkent olduğu için Yatırım kartı kullanılamaz.`, 'warning')
   }
 
   if (target.investmentApplied) {

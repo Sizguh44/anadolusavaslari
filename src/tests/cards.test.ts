@@ -232,28 +232,42 @@ describe('Kudret kartı', () => {
 describe('Yatırım kartı', () => {
   test('Seçilen kendi şehrinin vergi gelirini kalıcı olarak 2 katına çıkarır', () => {
     let state = completeCapitalSelection()
+    state = withCity(state, '71', { owner: 'P1' })
     state = withPlayerCards(state, 'P1', { YATIRIM: 1 })
-    const baseTax = state.cities['06'].baseTax
+    const baseTax = state.cities['71'].baseTax
 
-    expect(getCityTaxIncome(state.cities['06'])).toBe(baseTax)
+    expect(getCityTaxIncome(state.cities['71'])).toBe(baseTax)
 
-    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '06' })
+    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '71' })
 
-    expect(state.cities['06'].investmentApplied).toBe(true)
-    expect(getCityTaxIncome(state.cities['06'])).toBe(baseTax * YATIRIM_TAX_MULTIPLIER)
-    expect(state.players.P1.investedCityIds).toEqual(['06'])
+    expect(state.cities['71'].investmentApplied).toBe(true)
+    expect(getCityTaxIncome(state.cities['71'])).toBe(baseTax * YATIRIM_TAX_MULTIPLIER)
+    expect(state.players.P1.investedCityIds).toEqual(['71'])
     expect(state.players.P1.cards.YATIRIM).toBe(0)
   })
 
   test('Aynı şehre ikinci kez uygulanamaz, kart tüketilmez', () => {
     let state = completeCapitalSelection()
+    state = withCity(state, '71', { owner: 'P1' })
     state = withPlayerCards(state, 'P1', { YATIRIM: 2 })
-    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '06' })
+    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '71' })
     expect(state.players.P1.cards.YATIRIM).toBe(1)
 
-    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '06' })
+    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '71' })
     expect(state.players.P1.cards.YATIRIM).toBe(1)
-    expect(state.players.P1.investedCityIds).toEqual(['06'])
+    expect(state.players.P1.investedCityIds).toEqual(['71'])
+  })
+
+  test('Başkente Yatırım kartı uygulanamaz, kart tüketilmez', () => {
+    let state = completeCapitalSelection()
+    state = withPlayerCards(state, 'P1', { YATIRIM: 1 })
+
+    state = gameReducer(state, { type: 'USE_CARD_ON_CITY', cardType: 'YATIRIM', cityId: '06' })
+
+    expect(state.cities['06'].isCapital).toBe(true)
+    expect(state.cities['06'].investmentApplied).toBeFalsy()
+    expect(state.players.P1.cards.YATIRIM).toBe(1)
+    expect(state.players.P1.investedCityIds).toEqual([])
   })
 
   test('Rakip şehre uygulanamaz', () => {
@@ -269,8 +283,8 @@ describe('Yatırım kartı', () => {
 
   test('Oyuncu başına en fazla 5 şehirde uygulanabilir', () => {
     let state = completeCapitalSelection()
-    const p1Cities = ['06', '71', '18', '14', '40', '68']
-    for (const id of p1Cities.slice(1)) {
+    const p1Cities = ['71', '18', '14', '40', '68', '05']
+    for (const id of p1Cities) {
       state = withCity(state, id, { owner: 'P1' })
     }
     state = withPlayerCards(state, 'P1', { YATIRIM: 6 })
