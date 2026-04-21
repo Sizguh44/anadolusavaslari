@@ -1643,3 +1643,172 @@ p {
   display: flex;
   align-items: center;
 }
+
+/* ─── Kart arayüzü ───────────────────────────────────────────────────────── */
+
+.cards-dialog {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cards-dialog__header-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.cards-dialog__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(230, 235, 245, 0.82);
+  font-size: 0.84rem;
+}
+
+.cards-dialog__status strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.cards-dialog__pending {
+  color: #f1c163;
+}
+
+.cards-dialog__tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.75rem;
+}
+
+.card-grid__item {
+  position: relative;
+}
+
+.card-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(235, 240, 250, 0.92);
+  min-height: 100%;
+}
+
+.card-tile__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.card-tile__title {
+  margin: 0.15rem 0 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.card-tile__count {
+  align-self: flex-start;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(80, 180, 255, 0.16);
+  color: #b9e0ff;
+  font-weight: 600;
+  font-size: 0.78rem;
+  border: 1px solid rgba(80, 180, 255, 0.28);
+}
+
+.card-tile__desc {
+  margin: 0;
+  font-size: 0.86rem;
+  color: rgba(220, 226, 238, 0.84);
+  line-height: 1.35;
+}
+
+.card-tile__meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.18rem;
+  margin: 0.2rem 0;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.card-tile__meta > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.card-tile__meta dt {
+  min-width: 52px;
+  color: rgba(200, 210, 225, 0.64);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.7rem;
+}
+
+.card-tile__meta dd {
+  margin: 0;
+  color: rgba(232, 238, 250, 0.92);
+}
+
+.card-tile__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(190, 210, 235, 0.82);
+}
+
+.card-tile__warn {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #f1a57c;
+}
+
+.card-tile__actions {
+  margin-top: auto;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.card-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(14, 22, 38, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(232, 240, 255, 0.94);
+  font-size: 0.78rem;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.card-tooltip strong {
+  color: #fff;
+  font-size: 0.88rem;
+}
+
+.card-tooltip span {
+  color: rgba(210, 220, 235, 0.84);
+  line-height: 1.3;
+}
