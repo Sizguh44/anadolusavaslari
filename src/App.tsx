@@ -49,7 +49,13 @@ function Dialog({
 
 // ─── Setup Screen ────────────────────────────────────────────────────────────
 
-function SetupScreen({ onStart }: { onStart: (names: Record<PlayerId, string>) => void }) {
+function SetupScreen({
+  onStart,
+  onCancel,
+}: {
+  onStart: (names: Record<PlayerId, string>) => void
+  onCancel: () => void
+}) {
   const [p1Name, setP1Name] = useState(DEFAULT_PLAYER_NAMES.P1)
   const [p2Name, setP2Name] = useState(DEFAULT_PLAYER_NAMES.P2)
 
@@ -64,11 +70,20 @@ function SetupScreen({ onStart }: { onStart: (names: Record<PlayerId, string>) =
   return (
     <div className="overlay-backdrop">
       <div className="overlay-card setup-card">
-        <p className="section-eyebrow">Komutanlık Kurulumu</p>
-        <h2>Kuvvetlerinizi adlandırın</h2>
+        <header className="setup-card__head">
+          <div>
+            <p className="section-eyebrow">Komutanlık Kurulumu</p>
+            <h2>Kuvvetlerinizi adlandırın</h2>
+          </div>
+          <button type="button" className="button button--ghost button--compact" onClick={onCancel}>
+            Vazgeç
+          </button>
+        </header>
+
         <p className="setup-card__hint">
-          İsimler değiştirilmezse varsayılan olarak kalır.
+          İsimler boş bırakılırsa varsayılanlar atanır. Sonraki adımda harita üzerinden başkentlerinizi seçeceksiniz.
         </p>
+
         <form className="setup-form" onSubmit={handleSubmit}>
           <div className="setup-row">
             <label className="setup-label" htmlFor="name-p1">
@@ -101,9 +116,29 @@ function SetupScreen({ onStart }: { onStart: (names: Record<PlayerId, string>) =
               onChange={(e) => setP2Name(e.target.value)}
             />
           </div>
+
+          <dl className="setup-facts">
+            <div>
+              <dt>Başlangıç kasası</dt>
+              <dd>2000 altın</dd>
+            </div>
+            <div>
+              <dt>Başkent vergisi</dt>
+              <dd>200/tur</dd>
+            </div>
+            <div>
+              <dt>Ordu / Sur</dt>
+              <dd>1000 altın</dd>
+            </div>
+            <div>
+              <dt>Harp aksiyonu</dt>
+              <dd>1/tur (+Kudret)</dd>
+            </div>
+          </dl>
+
           <div className="setup-actions">
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="button button--primary button--hero"
               onClick={() => audioManager.playContext()}
             >
@@ -121,57 +156,70 @@ function SetupScreen({ onStart }: { onStart: (names: Record<PlayerId, string>) =
 function HomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <main className="home-shell">
-      <section className="hero-card">
-        <p className="section-eyebrow">Sıra Tabanlı Harp Oyunu</p>
+      <section className="home-hero">
+        <p className="section-eyebrow">Sıra Tabanlı Harp Oyunu · İki Komutan</p>
         <h1>Anadolu Savaşları</h1>
-        <p className="hero-card__copy">
-          Başkentini seç, her tur vergi topla, şehirlerine ordu ve sur ekle, cepheyi komşuluk üzerinden genişlet.
-          Aynı tur içinde çok iş yapabilirsin ama yalnızca bir büyük fetih hamlesi hakkın vardır.
+        <p className="home-hero__copy">
+          Başkentini belirle, vergilerle kasanı büyüt, ordu ve surlarınla cepheyi genişlet. Her tur tek büyük fetih
+          hamlesi var; strateji kartlarıyla düzeni bozabilir, rakibi köşeye sıkıştırabilirsin.
         </p>
-        <div className="hero-card__actions">
-          <button 
-            className="button button--primary button--hero" 
+        <div className="home-hero__actions">
+          <button
+            className="button button--primary button--hero"
             onClick={() => {
-              audioManager.playContext();
-              onStart();
+              audioManager.playContext()
+              onStart()
             }}
           >
-            Yeni savaşı başlat
+            Yeni Savaşa Başla
           </button>
+          <span className="home-hero__meta">İki oyunculu · Aynı ekran · Otomatik kayıt</span>
         </div>
       </section>
 
       <section className="home-grid">
-        <article className="info-panel">
-          <p className="section-eyebrow">Tur Döngüsü</p>
-          <h2>Kontrollü ama derin akış</h2>
-          <ul className="bullet-list">
-            <li>Tur başında şehir vergilerin ortak kasana toplanır.</li>
-            <li>Aynı turda istediğin kadar ordu basabilir ve sur inşa edebilirsin.</li>
-            <li>Dost şehirler arasında, yalnızca hazır birlikleri komşu şehirlere aktarabilirsin.</li>
-            <li>Her tur en fazla 1 ilhak veya 1 saldırı yapabilirsin.</li>
+        <article className="home-tile">
+          <span className="home-tile__icon" aria-hidden>⚒</span>
+          <p className="section-eyebrow">Ekonomi</p>
+          <h3>Vergi ve kasa</h3>
+          <ul className="home-tile__list">
+            <li>Her tur başında şehir vergileri kasana düşer.</li>
+            <li>Başkent kalıcı <strong>200</strong> altın vergi verir.</li>
+            <li>Ordu ve sur inşası birim başına <strong>1000</strong> altın.</li>
           </ul>
         </article>
 
-        <article className="info-panel">
+        <article className="home-tile">
+          <span className="home-tile__icon" aria-hidden>⚔</span>
           <p className="section-eyebrow">Muharebe</p>
-          <h2>Deterministik çözümleme</h2>
-          <ul className="bullet-list">
-            <li>Saldırı gücü gönderdiğin birlik sayısıdır.</li>
-            <li>Her 2 saldırı birimi, hedefte 1 sur seviyesi yıkar.</li>
-            <li>Savunma = şehir ordusu + kalan sur + başkent bonusu.</li>
-            <li>Başkent düşerse savaş anında biter.</li>
+          <h3>Deterministik çözüm</h3>
+          <ul className="home-tile__list">
+            <li>Saldırı gücü gönderilen birlik sayısına eşittir.</li>
+            <li>Her 2 saldırı birimi hedefte <strong>1 sur</strong> yıkar.</li>
+            <li>Başkent savunmasına <strong>+1</strong> ek avantaj.</li>
           </ul>
         </article>
 
-        <article className="info-panel">
-          <p className="section-eyebrow">Harita Kullanımı</p>
-          <h2>Akıcı kontrol</h2>
-          <ul className="bullet-list">
-            <li>Haritayı farenle basılı tutup sürükleyerek kaydır.</li>
-            <li>Çift tıkla yakınlaştır; tekrar çift tıkla uzaklaştır.</li>
-            <li>Her şehirde en az 1 birlik kalır; bu garnizondan intikal yapılamaz.</li>
-            <li>Vurgular, o an seçili aksiyona göre şehirleri bağlama duyarlı gösterir.</li>
+        <article className="home-tile">
+          <span className="home-tile__icon" aria-hidden>◈</span>
+          <p className="section-eyebrow">Strateji Kartları</p>
+          <h3>Dört farklı kart</h3>
+          <ul className="home-tile__list">
+            <li><strong>Casus</strong>: rakip ordusunun 1/3'ünü kilitler.</li>
+            <li><strong>Kundaklama</strong>: hedef şehri böler, sur düşer.</li>
+            <li><strong>Kudret</strong>: bu tur +1 saldırı hakkı.</li>
+            <li><strong>Yatırım</strong>: kendi şehrinin vergisini 2'ye katlar.</li>
+          </ul>
+        </article>
+
+        <article className="home-tile">
+          <span className="home-tile__icon" aria-hidden>♛</span>
+          <p className="section-eyebrow">Zafer Koşulu</p>
+          <h3>Rakip başkenti al</h3>
+          <ul className="home-tile__list">
+            <li>Düşman başkenti düşerse savaş anında biter.</li>
+            <li>Turu bitirmeden önce birden fazla takviye yapabilirsin.</li>
+            <li>Oyun her hamlede otomatik kaydedilir.</li>
           </ul>
         </article>
       </section>
@@ -710,6 +758,7 @@ export default function App() {
         <HomeScreen onStart={() => dispatch({ type: 'START_SETUP' })} />
         <SetupScreen
           onStart={(names) => dispatch({ type: 'SET_PLAYER_NAMES', names })}
+          onCancel={() => dispatch({ type: 'RETURN_HOME' })}
         />
       </>
     )
