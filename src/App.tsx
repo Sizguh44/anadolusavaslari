@@ -181,14 +181,18 @@ function HomeScreen({ onStart }: { onStart: () => void }) {
 
 // ─── Event Stream ─────────────────────────────────────────────────────────────
 
+const EVENT_STREAM_LIMIT = 10
+
 function EventStream({ events }: { events: GameEvent[] }) {
   if (events.length === 0) {
     return <p className="empty-state">Henüz kayıt oluşmadı.</p>
   }
 
+  const recent = [...events].slice(-EVENT_STREAM_LIMIT).reverse()
+
   return (
     <div className="event-stream">
-      {events.map((event) => (
+      {recent.map((event) => (
         <article key={event.id} className={`event-stream__item tone-${event.tone}`}>
           <div className="event-stream__meta">
             <span>Tur {event.turn}</span>
