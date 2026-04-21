@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
 import { TurkeyMapBoard, type MapContextCard } from './ui/TurkeyMapBoard'
 import { VolumeControl } from './ui/topbar/VolumeControl'
+import { CardsDialog } from './ui/CardsDialog'
 import { audioManager } from './engine/audioManager'
 import { playAttackSfx, playAnnexSfx, playBuildFortSfx, playBuildArmySfx, playClickSfx, playEndTurnSfx, playCapitalSfx } from './engine/sfxManager'
 import { clearSavedGame, loadSavedGame, saveGame } from './game/storage'
@@ -17,6 +18,7 @@ import {
   getAttackSourceIds,
   getAttackTargetIdsForSource,
   getCapitalForbiddenIds,
+  getCityEspionageLock,
   getCityOwnerLabel,
   getCurrentPreview,
   getExpandableSourceIds,
@@ -28,6 +30,7 @@ import {
   getTransferTargetIdsForSource,
   PLAYER_META,
 } from './game/state'
+import { CARD_CATALOG, type CardType } from './game/cards'
 import type { ActionMode, CityState, GameEvent, GameState, PlayerId } from './game/types'
 
 function Dialog({
@@ -391,6 +394,7 @@ export default function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, loadSavedGame)
   const [isLogOpen, setIsLogOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isCardsOpen, setIsCardsOpen] = useState(false)
   const [isCityPopoverPinned, setIsCityPopoverPinned] = useState(false)
   const [isCityPopoverHovered, setIsCityPopoverHovered] = useState(false)
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -404,12 +408,14 @@ export default function App() {
     }
   }, [state.currentPlayer])
 
-  // ── ESC key: cascading dismiss (dialogs → action mode → selection)
+  // ── ESC key: cascading dismiss (dialogs → card use → action mode → selection)
   useEffect(() => {
     function handleEsc(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
       if (isLogOpen) { setIsLogOpen(false); return }
       if (isMenuOpen) { setIsMenuOpen(false); return }
+      if (isCardsOpen) { setIsCardsOpen(false); return }
+      if (state.pendingCardUse) { dispatch({ type: 'CANCEL_CARD_USE' }); return }
       closePopup()
       if (state.actionMode || state.selectedCityId) {
         dispatch({ type: 'CLEAR_ACTION_SELECTION' })
@@ -504,7 +510,9 @@ export default function App() {
   const cityPopoverOpen = Boolean(selectedCity && (isCityPopoverPinned || isCityPopoverHovered))
   const confirmReady = getConfirmReady(state)
   const confirmLabel = getConfirmLabel(state)
-  const statusLine = getActionPrompt(state, sourceCity, targetCity)
+  const statusLine = state.pendingCardUse
+    ? `${CARD_CATALOG[state.pendingCardUse.type].name} kartı aktif — hedefi haritadan seç. (ESC ile iptal)`
+    : getActionPrompt(state, sourceCity, targetCity)
   const transferAmountMax =
     sourceCity && state.actionMode === 'TRANSFER'
       ? Math.max(1, Math.min(sourceCity.readyArmy - 1, CITY_ARMY_LIMIT - (targetCity?.army ?? 0)))
@@ -529,6 +537,11 @@ export default function App() {
 
   const handleCitySelect = (cityId: string) => {
     resetPopupTimer()
+    // Hedef gerektiren bir kart kullanımı aktifse, tıklama doğrudan kart için hedef olur.
+    if (state.pendingCardUse) {
+      dispatch({ type: 'USE_CARD_ON_CITY', cardType: state.pendingCardUse.type, cityId })
+      return
+    }
     dispatch({ type: 'SELECT_CITY', cityId })
   }
 
@@ -556,6 +569,14 @@ export default function App() {
     dispatch({ type: 'CONFIRM_ACTION' })
   }
 
+  const selectedCityEspionageLock = selectedCity ? getCityEspionageLock(state, selectedCity.id) : 0
+  const selectedCityInvested = selectedCity?.investmentApplied ?? false
+  const effectiveTaxOnSelected = selectedCity
+    ? selectedCity.investmentApplied
+      ? selectedCity.baseTax * 2
+      : selectedCity.baseTax
+    : 0
+
   const contextCard: MapContextCard | null = selectedCity
     ? {
         cityId: selectedCity.id,
@@ -570,7 +591,7 @@ export default function App() {
         title: selectedCity.name,
         ownerLabel: getCityOwnerLabel(selectedCity, names),
         ownerTone: selectedCity.owner ?? 'neutral',
-        subtitle: `${selectedCity.neighbors.length} komşu • Vergi ${selectedCity.baseTax}`,
+        subtitle: `${selectedCity.neighbors.length} komşu • Vergi ${effectiveTaxOnSelected}${selectedCityInvested ? ' (2×)' : ''}`,
         helperText: getActionPrompt(state, sourceCity, targetCity),
         stats: [
           { label: 'Ordu', value: `${selectedCity.army}/${CITY_ARMY_LIMIT}` },
@@ -583,6 +604,8 @@ export default function App() {
             ...selectedCityActionTags,
             state.actionSourceCityId === selectedCity.id ? 'Kaynak' : '',
             state.actionTargetCityId === selectedCity.id ? 'Hedef' : '',
+            selectedCityEspionageLock > 0 ? `Casus: -${selectedCityEspionageLock}` : '',
+            selectedCityInvested ? 'Yatırım 2×' : '',
           ].filter(Boolean)),
         ],
         actions:
@@ -826,6 +849,9 @@ export default function App() {
               <button className="button button--ghost button--compact" onClick={handleClear}>
                 Temizle
               </button>
+              <button className="button button--ghost button--compact" onClick={() => setIsCardsOpen(true)}>
+                Kartlar
+              </button>
               <button className="button button--ghost button--compact" onClick={() => setIsLogOpen(true)}>
                 Günlük
               </button>
@@ -891,6 +917,25 @@ export default function App() {
             </button>
           </div>
         </Dialog>
+      ) : null}
+
+      {isCardsOpen ? (
+        <CardsDialog
+          state={state}
+          activePlayer={state.currentPlayer}
+          onClose={() => setIsCardsOpen(false)}
+          onBuy={(cardType: CardType) => { playClickSfx(); dispatch({ type: 'BUY_CARD', cardType }) }}
+          onBeginUse={(cardType: CardType) => {
+            playClickSfx()
+            dispatch({ type: 'BEGIN_CARD_USE', cardType })
+            setIsCardsOpen(false)
+          }}
+          onUseSelf={(cardType: CardType) => {
+            playClickSfx()
+            dispatch({ type: 'USE_CARD_SELF', cardType })
+          }}
+          onCancelUse={() => dispatch({ type: 'CANCEL_CARD_USE' })}
+        />
       ) : null}
 
       {state.stage === 'GAME_OVER' && state.winner && state.victorySummary ? (

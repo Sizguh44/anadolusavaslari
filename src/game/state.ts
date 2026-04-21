@@ -1,7 +1,24 @@
 import { CITY_DEFINITIONS, getCityBaseTaxByName } from '../data/cityDefinitions'
+import {
+  CARD_CATALOG,
+  CARD_PRICES,
+  createEmptyCardInventory,
+  distributeUnitsToFriendlyNeighbors,
+  ESPIONAGE_LOCK_RATIO,
+  ESPIONAGE_TURN_OFFSET,
+  getAttackableReadyArmy,
+  getEffectiveEspionageLock,
+  getFriendlyNeighborIds,
+  hasActiveEspionage,
+  KUNDAKLAMA_STAYED_RATIO,
+  roundDown,
+  YATIRIM_MAX_PER_PLAYER,
+  YATIRIM_TAX_MULTIPLIER,
+  type CardType,
+} from './cards'
 import type { ActionMode, AttackPreview, CityState, EventTone, GameAction, GameState, PlayerId } from './types'
 
-export const GAME_STATE_VERSION = 2
+export const GAME_STATE_VERSION = 3
 export const STARTING_CAPITAL_ARMY = 6
 export const STARTING_CAPITAL_FORT = 1
 export const NEUTRAL_CAPTURE_GARRISON = 1
@@ -68,23 +85,29 @@ function createCities(): Record<string, CityState> {
       readyArmy: 0,
       fortLevel: 0,
       baseTax: getCityBaseTaxByName(city.name),
+      espionageLock: null,
+      investmentApplied: false,
     }
     return accumulator
   }, {})
 }
 
+function createPlayer(id: PlayerId): GameState['players'][PlayerId] {
+  return {
+    id,
+    treasury: STARTING_TREASURY,
+    lastCollectedTax: 0,
+    cards: createEmptyCardInventory(),
+    investedCityIds: [],
+    kudretUsedThisTurn: false,
+    bonusAttacksRemaining: 0,
+  }
+}
+
 function createPlayers(): GameState['players'] {
   return {
-    P1: {
-      id: 'P1',
-      treasury: STARTING_TREASURY,
-      lastCollectedTax: 0,
-    },
-    P2: {
-      id: 'P2',
-      treasury: STARTING_TREASURY,
-      lastCollectedTax: 0,
-    },
+    P1: createPlayer('P1'),
+    P2: createPlayer('P2'),
   }
 }
 
@@ -109,6 +132,7 @@ export function createInitialGameState(): GameState {
     playerNames: { P1: DEFAULT_PLAYER_NAMES.P1, P2: DEFAULT_PLAYER_NAMES.P2 },
     events: [],
     nextEventId: 1,
+    pendingCardUse: null,
   }
 }
 
@@ -229,8 +253,12 @@ export function getPlayerCapital(state: GameState, playerId: PlayerId): CityStat
   return getPlayerCities(state, playerId).find((city) => city.isCapital) ?? null
 }
 
+export function getCityTaxIncome(city: CityState): number {
+  return city.investmentApplied ? city.baseTax * YATIRIM_TAX_MULTIPLIER : city.baseTax
+}
+
 export function getPlayerIncome(state: GameState, playerId: PlayerId): number {
-  return getPlayerCities(state, playerId).reduce((total, city) => total + city.baseTax, 0)
+  return getPlayerCities(state, playerId).reduce((total, city) => total + getCityTaxIncome(city), 0)
 }
 
 export function getCityOwnerLabel(city: CityState, playerNames?: Record<PlayerId, string>): string {
@@ -274,9 +302,25 @@ function refreshPlayerArmyReadiness(state: GameState, playerId: PlayerId) {
   }, {})
 }
 
+/** Süresi dolmuş casus kilitlerini temizler. Tur başında çağrılır. */
+function clearExpiredEspionageLocks(cities: GameState['cities'], currentTurn: number): GameState['cities'] {
+  let changed = false
+  const next: GameState['cities'] = {}
+  for (const [id, city] of Object.entries(cities)) {
+    if (city.espionageLock && city.espionageLock.expiresAtTurn <= currentTurn) {
+      next[id] = { ...city, espionageLock: null }
+      changed = true
+    } else {
+      next[id] = city
+    }
+  }
+  return changed ? next : cities
+}
+
 function startTurn(state: GameState, playerId: PlayerId, turn: number): GameState {
   const round = getRoundNumber(turn)
-  const cities = refreshPlayerArmyReadiness(state, playerId)
+  const withLocksCleared = clearExpiredEspionageLocks(state.cities, turn)
+  const cities = refreshPlayerArmyReadiness({ ...state, cities: withLocksCleared }, playerId)
   const interimState = {
     ...state,
     cities,
@@ -288,6 +332,9 @@ function startTurn(state: GameState, playerId: PlayerId, turn: number): GameStat
       ...interimState.players[playerId],
       treasury: interimState.players[playerId].treasury + income,
       lastCollectedTax: income,
+      // Tur bazlı kart sayaçları sıfırlanır.
+      kudretUsedThisTurn: false,
+      bonusAttacksRemaining: 0,
     },
   }
 
@@ -304,6 +351,7 @@ function startTurn(state: GameState, playerId: PlayerId, turn: number): GameStat
     actionAmount: 0,
     conquestUsed: false,
     victorySummary: null,
+    pendingCardUse: null,
     statusMessage: `${state.playerNames?.[playerId] ?? PLAYER_META[playerId].shortLabel} ${round}. turunu başlattı. ${income} altın vergi toplandı.`,
   }
 }
@@ -477,13 +525,20 @@ export function getAttackSourceIds(state: GameState, playerId = state.currentPla
     .filter(
       (city) =>
         city.owner === playerId &&
-        city.readyArmy > 1 &&
+        // Casus kilidinden sonra kalan etkili hazır birlik > 1 olmalı (garnizon + saldırı birliği).
+        getAttackableReadyArmy(city, state.turn) > 1 &&
         city.neighbors.some((neighborId) => {
           const neighbor = state.cities[neighborId]
           return Boolean(neighbor && neighbor.owner && neighbor.owner !== playerId)
         }),
     )
     .map((city) => city.id)
+}
+
+/** Oyuncunun şu an bir saldırı yapma hakkı var mı (ana hamle veya Kudret bonusu). */
+export function hasAttackOpportunity(state: GameState, playerId: PlayerId = state.currentPlayer): boolean {
+  if (!state.conquestUsed) return true
+  return state.players[playerId].bonusAttacksRemaining > 0
 }
 
 /** Tüm sahipsiz şehirler içinden, en az bir dost komşusu olan (global ilhak edilebilir) şehirleri döner. */
@@ -500,7 +555,7 @@ export function getAllAnnexableTargetIds(state: GameState, playerId = state.curr
 export function getAttackTargetIdsForSource(state: GameState, sourceCityId: string | null): string[] {
   const source = getCity(state, sourceCityId)
 
-  if (!source || source.owner !== state.currentPlayer || source.readyArmy <= 0) {
+  if (!source || source.owner !== state.currentPlayer || getAttackableReadyArmy(source, state.turn) <= 0) {
     return []
   }
 
@@ -535,7 +590,7 @@ export function canCurrentPlayerTransfer(state: GameState): boolean {
 }
 
 export function canCurrentPlayerAttack(state: GameState): boolean {
-  return !state.conquestUsed && getAttackSourceIds(state).length > 0
+  return hasAttackOpportunity(state) && getAttackSourceIds(state).length > 0
 }
 
 export function canBuildArmyInCity(state: GameState, cityId: string | null): boolean {
@@ -574,8 +629,9 @@ function getActionAmountMax(state: GameState, source: CityState | null, target: 
   }
 
   if (state.actionMode === 'ATTACK') {
-    // Garnizon kuralı: kaynak şehirde en az 1 birlik kalmalı
-    return Math.max(0, source.readyArmy - 1)
+    // Garnizon kuralı: kaynak şehirde en az 1 birlik kalmalı.
+    // Casus kilidi aktifse, kilitli birlikler saldırıya katılamaz.
+    return Math.max(0, getAttackableReadyArmy(source, state.turn) - 1)
   }
 
   return 0
@@ -909,7 +965,7 @@ function setActionMode(state: GameState, mode: ActionMode): GameState {
     return resetActionPlanForMode(state, 'TRANSFER', 'İntikal modu açıldı. Önce kaynak, sonra dost hedef seçin.')
   }
 
-  if (state.conquestUsed) {
+  if (!hasAttackOpportunity(state)) {
     return withStatus(state, 'Bu tur ana fetih aksiyonu zaten kullanıldı.', 'warning')
   }
 
@@ -1054,8 +1110,34 @@ function resolveCapitalVictory(
   )
 }
 
+/**
+ * Saldırı hakkını tüketir. Ana hamle hala kullanılabiliyorsa onu; aksi halde
+ * Kudret bonus sayacından bir tane düşer.
+ */
+function consumeAttackOpportunity(state: GameState): {
+  conquestUsed: boolean
+  players: GameState['players']
+} {
+  if (!state.conquestUsed) {
+    return { conquestUsed: true, players: state.players }
+  }
+
+  const current = state.players[state.currentPlayer]
+  const bonus = Math.max(0, current.bonusAttacksRemaining - 1)
+  return {
+    conquestUsed: true,
+    players: {
+      ...state.players,
+      [state.currentPlayer]: {
+        ...current,
+        bonusAttacksRemaining: bonus,
+      },
+    },
+  }
+}
+
 function confirmAttack(state: GameState): GameState {
-  if (state.conquestUsed) {
+  if (!hasAttackOpportunity(state)) {
     return withStatus(state, 'Bu tur ana fetih aksiyonu zaten kullanıldı.')
   }
 
@@ -1081,6 +1163,7 @@ function confirmAttack(state: GameState): GameState {
   }
 
   const nextSource = setCityArmy(source, source.army - preview.attackAmount, source.readyArmy - preview.attackAmount)
+  const consumption = consumeAttackOpportunity(state)
 
   if (preview.willCapture) {
     const nextTarget = setCityFort(
@@ -1090,6 +1173,7 @@ function confirmAttack(state: GameState): GameState {
           owner: state.currentPlayer,
           isCapital: false,
           fortLevel: 0,
+          espionageLock: null,
         },
         preview.survivors,
         0,
@@ -1105,7 +1189,8 @@ function confirmAttack(state: GameState): GameState {
       ...state,
       cities: nextCities,
       selectedCityId: target.id,
-      conquestUsed: true,
+      conquestUsed: consumption.conquestUsed,
+      players: consumption.players,
       statusMessage: `${target.name} ele geçirildi. ${preview.survivors} saldırı birliği şehirde yorulmuş halde konuşlandı.`,
     }
 
@@ -1133,7 +1218,8 @@ function confirmAttack(state: GameState): GameState {
       ...state,
       cities: nextCities,
       selectedCityId: target.id,
-      conquestUsed: true,
+      conquestUsed: consumption.conquestUsed,
+      players: consumption.players,
       statusMessage: message,
     }),
     'danger',
@@ -1257,6 +1343,322 @@ function advanceTurn(state: GameState): GameState {
   return startTurn(state, nextPlayer, nextTurn)
 }
 
+// ─── Kart aksiyonları ────────────────────────────────────────────────────────
+
+function setPlayer(state: GameState, playerId: PlayerId, patch: Partial<GameState['players'][PlayerId]>): GameState {
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: {
+        ...state.players[playerId],
+        ...patch,
+      },
+    },
+  }
+}
+
+function decrementCardCount(state: GameState, playerId: PlayerId, cardType: CardType): GameState {
+  const player = state.players[playerId]
+  const current = player.cards[cardType] ?? 0
+  const nextInventory = { ...player.cards, [cardType]: Math.max(0, current - 1) }
+  return setPlayer(state, playerId, { cards: nextInventory })
+}
+
+function buyCard(state: GameState, cardType: CardType): GameState {
+  if (state.stage !== 'PLAYING') return state
+
+  const price = CARD_PRICES[cardType]
+  const player = state.players[state.currentPlayer]
+
+  if (player.treasury < price) {
+    return withStatus(state, 'Kart almak için kasa yetersiz.', 'warning')
+  }
+
+  const definition = CARD_CATALOG[cardType]
+  const nextInventory = { ...player.cards, [cardType]: (player.cards[cardType] ?? 0) + 1 }
+  const nextState = setPlayer(state, state.currentPlayer, {
+    cards: nextInventory,
+    treasury: player.treasury - price,
+  })
+  const message = `${PLAYER_META[state.currentPlayer].shortLabel} oyuncu ${definition.name} kartı satın aldı. (${price} altın)`
+
+  return createEvent({ ...nextState, statusMessage: message }, 'info', message)
+}
+
+function beginCardUse(state: GameState, cardType: CardType): GameState {
+  if (state.stage !== 'PLAYING') return state
+
+  const player = state.players[state.currentPlayer]
+  if ((player.cards[cardType] ?? 0) <= 0) {
+    return withStatus(state, `Envanterinizde ${CARD_CATALOG[cardType].name} kartı yok.`, 'warning')
+  }
+
+  // Tur bazlı kullanım kısıtı: Kudret bu tur kullanılmış olmamalı.
+  if (cardType === 'KUDRET' && player.kudretUsedThisTurn) {
+    return withStatus(state, 'Kudret kartı aynı tur içinde yalnızca bir kez kullanılabilir.', 'warning')
+  }
+
+  return {
+    ...state,
+    pendingCardUse: { type: cardType },
+    statusMessage: getPendingCardPrompt(cardType),
+  }
+}
+
+function cancelCardUse(state: GameState): GameState {
+  if (!state.pendingCardUse) return state
+  return { ...state, pendingCardUse: null, statusMessage: 'Kart kullanımı iptal edildi.' }
+}
+
+function getPendingCardPrompt(cardType: CardType): string {
+  const definition = CARD_CATALOG[cardType]
+  if (definition.targetKind === 'NONE') {
+    return `${definition.name} kartı kullanılıyor…`
+  }
+  if (definition.targetKind === 'SELF_CITY') {
+    return `${definition.name} için kendi şehirlerinizden birine tıklayın.`
+  }
+  return `${definition.name} için rakip şehre tıklayın.`
+}
+
+// ── CASUS ────────────────────────────────────────────────────────────────────
+function applyCasus(state: GameState, targetCityId: string): GameState {
+  const player = state.players[state.currentPlayer]
+  if ((player.cards.CASUS ?? 0) <= 0) {
+    return withStatus(state, 'Envanterinizde Casus kartı yok.', 'warning')
+  }
+
+  const target = state.cities[targetCityId]
+  if (!target) {
+    return withStatus(state, 'Hedef şehir bulunamadı.', 'warning')
+  }
+
+  if (!target.owner || target.owner === state.currentPlayer) {
+    return withStatus(state, 'Casus kartı yalnızca rakip şehirlere uygulanabilir.', 'warning')
+  }
+
+  if (hasActiveEspionage(target, state.turn)) {
+    return withStatus(state, `${target.name} üzerinde zaten aktif bir casus etkisi var.`, 'warning')
+  }
+
+  const lockedCount = roundDown(target.army * ESPIONAGE_LOCK_RATIO)
+  if (lockedCount <= 0) {
+    return withStatus(state, `${target.name} şehrinde casusun etkileyebileceği birlik yok.`, 'warning')
+  }
+
+  const nextCity: CityState = {
+    ...target,
+    espionageLock: {
+      lockedCount,
+      expiresAtTurn: state.turn + ESPIONAGE_TURN_OFFSET,
+      casterId: state.currentPlayer,
+    },
+  }
+
+  const afterInventory = decrementCardCount(state, state.currentPlayer, 'CASUS')
+  const nextState: GameState = {
+    ...afterInventory,
+    cities: { ...afterInventory.cities, [targetCityId]: nextCity },
+    pendingCardUse: null,
+    selectedCityId: targetCityId,
+  }
+
+  const message = `Casus kartı kullanıldı: ${target.name} şehrinde ${lockedCount} birlik 1 tur boyunca saldırıya kapandı (savunmaya devam eder).`
+  return createEvent({ ...nextState, statusMessage: message }, 'warning', message)
+}
+
+// ── KUNDAKLAMA ───────────────────────────────────────────────────────────────
+function applyKundaklama(state: GameState, targetCityId: string): GameState {
+  const player = state.players[state.currentPlayer]
+  if ((player.cards.KUNDAKLAMA ?? 0) <= 0) {
+    return withStatus(state, 'Envanterinizde Kundaklama kartı yok.', 'warning')
+  }
+
+  const target = state.cities[targetCityId]
+  if (!target) {
+    return withStatus(state, 'Hedef şehir bulunamadı.', 'warning')
+  }
+
+  if (!target.owner || target.owner === state.currentPlayer) {
+    return withStatus(state, 'Kundaklama yalnızca rakip şehirlere uygulanabilir.', 'warning')
+  }
+
+  const targetOwner = target.owner
+  const friendlyNeighbors = getFriendlyNeighborIds(target, targetOwner, state.cities)
+
+  if (friendlyNeighbors.length === 0) {
+    return withStatus(
+      state,
+      `${target.name} şehrinin dağılacağı dost komşu yok; Kundaklama kullanılamaz.`,
+      'warning',
+    )
+  }
+
+  const stayedInCity = roundDown(target.army * KUNDAKLAMA_STAYED_RATIO)
+  const toDistribute = target.army - stayedInCity
+
+  const { distribution, overflow } = distributeUnitsToFriendlyNeighbors(
+    toDistribute,
+    friendlyNeighbors,
+    state.cities,
+    CITY_ARMY_LIMIT,
+  )
+
+  const nextFort = Math.max(0, target.fortLevel - 1)
+  const nextTargetArmy = stayedInCity + overflow // Komşular dolarsa geri kaynak şehre döner — toplam birlik korunur.
+  const nextTarget: CityState = setCityFort(
+    setCityArmy(target, nextTargetArmy, Math.min(target.readyArmy, nextTargetArmy)),
+    nextFort,
+  )
+
+  const nextCities: Record<string, CityState> = { ...state.cities, [targetCityId]: nextTarget }
+  const distributedEntries: Array<{ name: string; count: number }> = []
+
+  for (const [neighborId, count] of Object.entries(distribution)) {
+    if (count <= 0) continue
+    const neighbor = state.cities[neighborId]
+    if (!neighbor) continue
+    const updated = setCityArmy(neighbor, neighbor.army + count, neighbor.readyArmy) // Gelen birlikler bu tur yorulmuş gibi.
+    nextCities[neighborId] = updated
+    distributedEntries.push({ name: neighbor.name, count })
+  }
+
+  const afterInventory = decrementCardCount(state, state.currentPlayer, 'KUNDAKLAMA')
+
+  const distributionText =
+    distributedEntries.length > 0
+      ? distributedEntries.map((entry) => `${entry.name} (+${entry.count})`).join(', ')
+      : 'hiçbir komşuya yerleşmedi'
+  const overflowNote = overflow > 0 ? `, ${overflow} birlik komşu kapasitesi dolduğu için şehirde kaldı` : ''
+
+  const nextState: GameState = {
+    ...afterInventory,
+    cities: nextCities,
+    pendingCardUse: null,
+    selectedCityId: targetCityId,
+  }
+
+  const message = `Kundaklama: ${target.name} şehrinde ${nextTargetArmy} birlik kaldı, ${toDistribute - overflow} birlik ${distributionText} olarak dağıldı${overflowNote}. Sur ${target.fortLevel} → ${nextFort}.`
+
+  return createEvent({ ...nextState, statusMessage: message }, 'danger', message)
+}
+
+// ── KUDRET ───────────────────────────────────────────────────────────────────
+function applyKudret(state: GameState): GameState {
+  const player = state.players[state.currentPlayer]
+  if ((player.cards.KUDRET ?? 0) <= 0) {
+    return withStatus(state, 'Envanterinizde Kudret kartı yok.', 'warning')
+  }
+
+  if (player.kudretUsedThisTurn) {
+    return withStatus(state, 'Kudret kartı aynı tur içinde yalnızca bir kez kullanılabilir.', 'warning')
+  }
+
+  const afterInventory = decrementCardCount(state, state.currentPlayer, 'KUDRET')
+  const nextState = setPlayer(afterInventory, state.currentPlayer, {
+    bonusAttacksRemaining: afterInventory.players[state.currentPlayer].bonusAttacksRemaining + 1,
+    kudretUsedThisTurn: true,
+  })
+
+  const message = `Kudret kartı kullanıldı: ${PLAYER_META[state.currentPlayer].shortLabel} oyuncu bu tur +1 saldırı hakkı kazandı.`
+  return createEvent(
+    { ...nextState, pendingCardUse: null, statusMessage: message },
+    'success',
+    message,
+  )
+}
+
+// ── YATIRIM ──────────────────────────────────────────────────────────────────
+function applyYatirim(state: GameState, targetCityId: string): GameState {
+  const player = state.players[state.currentPlayer]
+  if ((player.cards.YATIRIM ?? 0) <= 0) {
+    return withStatus(state, 'Envanterinizde Yatırım kartı yok.', 'warning')
+  }
+
+  if (player.investedCityIds.length >= YATIRIM_MAX_PER_PLAYER) {
+    return withStatus(
+      state,
+      `Oyun boyunca en fazla ${YATIRIM_MAX_PER_PLAYER} şehirde Yatırım kartı kullanabilirsiniz.`,
+      'warning',
+    )
+  }
+
+  const target = state.cities[targetCityId]
+  if (!target) {
+    return withStatus(state, 'Hedef şehir bulunamadı.', 'warning')
+  }
+
+  if (target.owner !== state.currentPlayer) {
+    return withStatus(state, 'Yatırım yalnızca kendi şehirlerinizde yapılabilir.', 'warning')
+  }
+
+  if (target.investmentApplied) {
+    return withStatus(state, `${target.name} şehrine zaten Yatırım uygulanmış.`, 'warning')
+  }
+
+  const nextCity: CityState = { ...target, investmentApplied: true }
+  const afterInventory = decrementCardCount(state, state.currentPlayer, 'YATIRIM')
+  const nextState = setPlayer(afterInventory, state.currentPlayer, {
+    investedCityIds: [...afterInventory.players[state.currentPlayer].investedCityIds, targetCityId],
+  })
+
+  const message = `${target.name} şehrine yatırım yapıldı. Vergi geliri kalıcı olarak ${YATIRIM_TAX_MULTIPLIER} katına çıktı.`
+
+  return createEvent(
+    {
+      ...nextState,
+      cities: { ...nextState.cities, [targetCityId]: nextCity },
+      pendingCardUse: null,
+      selectedCityId: targetCityId,
+      statusMessage: message,
+    },
+    'success',
+    message,
+  )
+}
+
+function useCardOnCity(state: GameState, cardType: CardType, cityId: string): GameState {
+  if (state.stage !== 'PLAYING') return state
+
+  switch (cardType) {
+    case 'CASUS':
+      return applyCasus(state, cityId)
+    case 'KUNDAKLAMA':
+      return applyKundaklama(state, cityId)
+    case 'YATIRIM':
+      return applyYatirim(state, cityId)
+    case 'KUDRET':
+      return withStatus(state, 'Kudret kartı hedef gerektirmez.', 'warning')
+    default:
+      return state
+  }
+}
+
+function useCardSelf(state: GameState, cardType: CardType): GameState {
+  if (state.stage !== 'PLAYING') return state
+
+  if (cardType === 'KUDRET') return applyKudret(state)
+
+  return withStatus(state, 'Bu kart hedef seçimi gerektirir.', 'warning')
+}
+
+// ─── Kart yardımcıları: yatırım ekran bilgisi ────────────────────────────────
+export function getPlayerInvestmentCount(state: GameState, playerId: PlayerId): number {
+  return state.players[playerId].investedCityIds.length
+}
+
+export function isCityInvested(state: GameState, cityId: string): boolean {
+  return Boolean(state.cities[cityId]?.investmentApplied)
+}
+
+export function getCityEspionageLock(state: GameState, cityId: string): number {
+  const city = state.cities[cityId]
+  return city ? getEffectiveEspionageLock(city, state.turn) : 0
+}
+
+export { getEffectiveEspionageLock, getAttackableReadyArmy, hasActiveEspionage, CARD_CATALOG, CARD_PRICES }
+
 function endTurn(state: GameState): GameState {
   if (state.stage !== 'PLAYING') {
     return state
@@ -1333,6 +1735,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'END_TURN':
       return endTurn(state)
+
+    case 'BUY_CARD':
+      return buyCard(state, action.cardType)
+
+    case 'BEGIN_CARD_USE':
+      return beginCardUse(state, action.cardType)
+
+    case 'CANCEL_CARD_USE':
+      return cancelCardUse(state)
+
+    case 'USE_CARD_SELF':
+      return useCardSelf(state, action.cardType)
+
+    case 'USE_CARD_ON_CITY':
+      return useCardOnCity(state, action.cardType, action.cityId)
 
     default:
       return state
