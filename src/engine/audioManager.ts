@@ -1,6 +1,21 @@
 const STORAGE_KEY_VOLUME = 'as_audio_volume';
 const STORAGE_KEY_MUTED = 'as_audio_muted';
 
+/**
+ * Web Audio API, bazı ortamlarda (jsdom test, SSR, çok eski tarayıcılar)
+ * mevcut olmayabilir. Tarayıcıda "AudioContext" veya "webkitAudioContext"
+ * hangisi varsa onu döneriz; hiçbiri yoksa null — bu durumda tüm motor
+ * no-op çalışır.
+ */
+function resolveAudioContextCtor(): typeof AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  return w.AudioContext ?? w.webkitAudioContext ?? null;
+}
+
 /* ── Procedural ambient BGM engine (Web Audio API) ──────────── *
  *  La minör atmosferik müzik: drone + pad akorlar + seyrek melodi
  *  Gerilimli, sanatsal, arka planda çalıp yormayan              */
@@ -28,7 +43,9 @@ class ProceduralBGM {
 
   start(volume: number) {
     if (this.isPlaying) return;
-    this.ctx = new AudioContext();
+    const Ctor = resolveAudioContextCtor();
+    if (!Ctor) return;
+    this.ctx = new Ctor();
     this.isPlaying = true;
 
     // ── Master gain ──

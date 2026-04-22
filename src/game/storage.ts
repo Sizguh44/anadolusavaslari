@@ -90,12 +90,20 @@ function migrateSave(parsed: GameState): GameState {
     }
   }
 
+  const nextEvents = Array.isArray(parsed.events)
+    ? parsed.events.map((event) => ({
+        ...event,
+        actor: event.actor ?? 'SYSTEM',
+      }))
+    : []
+
   return {
     ...parsed,
     version: GAME_STATE_VERSION,
     cities: nextCities,
     players: nextPlayers,
     pendingCardUse: parsed.pendingCardUse ?? null,
+    events: nextEvents,
   }
 }
 

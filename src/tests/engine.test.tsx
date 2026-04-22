@@ -231,7 +231,7 @@ describe('arayüz duman testi', () => {
   test('ana akış yüklenir ve tek ekran komuta yüzeyi görünür', async () => {
     const { container } = await renderApp()
 
-    await clickButtonByText(container, 'Yeni savaşı başlat')
+    await clickButtonByText(container, 'Yeni Savaşa Başla')
     await clickButtonByText(container, 'Savaşı Başlat')
 
     expect(container.textContent).toContain('Başkent Yap')

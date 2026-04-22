@@ -6,7 +6,13 @@ import { audioManager } from './audioManager';
 
 function getCtx(): AudioContext | null {
   if (audioManager.getIsMuted()) return null;
-  return new AudioContext();
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const Ctor = w.AudioContext ?? w.webkitAudioContext ?? null;
+  return Ctor ? new Ctor() : null;
 }
 
 function masterGain(ctx: AudioContext): GainNode {

@@ -55,6 +55,11 @@ export interface GameEvent {
   round: number
   tone: EventTone
   message: string
+  /**
+   * Hangi oyuncunun hamlesi veya sistem olayı olduğunu belirtir. Eski
+   * kayıtlarda yoksa storage migration `'SYSTEM'` olarak doldurur.
+   */
+  actor?: PlayerId | 'SYSTEM'
 }
 
 export interface AttackPreview {

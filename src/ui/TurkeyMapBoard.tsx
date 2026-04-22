@@ -4,6 +4,7 @@ import type { FeatureCollection, Geometry } from 'geojson'
 import { getFeatureDisplayName, matchFeatureToCityDefinition, type MapFeatureProperties } from '../data/mapMatching'
 import { validateCityDefinitionsConsistency, validateMapFeatureCollection } from '../data/mapValidation'
 import type { ActionMode, CityState, GameStage, PlayerId } from '../game/types'
+import { InfoTag } from './hud/InfoTag'
 
 const MAP_WIDTH = 1000
 const MAP_HEIGHT = 620
@@ -871,9 +872,7 @@ export function TurkeyMapBoard({
             {contextCard.tags?.length ? (
               <div className="tag-row">
                 {contextCard.tags.map((tag) => (
-                  <span key={tag} className="info-tag">
-                    {tag}
-                  </span>
+                  <InfoTag key={tag}>{tag}</InfoTag>
                 ))}
               </div>
             ) : null}

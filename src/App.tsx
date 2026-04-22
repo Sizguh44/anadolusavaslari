@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { TurkeyMapBoard, type MapContextCard } from './ui/TurkeyMapBoard'
 import { VolumeControl } from './ui/topbar/VolumeControl'
 import { CardsDialog } from './ui/CardsDialog'
-import { audioManager } from './engine/audioManager'
+import { BoardCornerActions } from './ui/hud/BoardCornerActions'
+import { CityPopover } from './ui/hud/CityPopover'
+import { Dialog } from './ui/hud/Dialog'
+import { EventStream } from './ui/hud/EventStream'
+import { InfoTag } from './ui/hud/InfoTag'
+import { StatPill } from './ui/hud/StatPill'
+import { HomeScreen } from './ui/screens/HomeScreen'
+import { SetupScreen } from './ui/screens/SetupScreen'
 import { playAttackSfx, playAnnexSfx, playBuildFortSfx, playBuildArmySfx, playClickSfx, playEndTurnSfx, playCapitalSfx } from './engine/sfxManager'
 import { clearSavedGame, loadSavedGame, saveGame } from './game/storage'
 import {
@@ -11,7 +18,6 @@ import {
   canBuildFortInCity,
   CITY_ARMY_LIMIT,
   CITY_FORT_LIMIT,
-  DEFAULT_PLAYER_NAMES,
   FORT_COST,
   gameReducer,
   getAllAnnexableTargetIds,
@@ -23,7 +29,6 @@ import {
   getCurrentPreview,
   getExpandableSourceIds,
   getExpandableTargetIdsForSource,
-  getModeLabel,
   getPlayerIncome,
   getRoundNumber,
   getTransferSourceIds,
@@ -31,412 +36,16 @@ import {
   PLAYER_META,
 } from './game/state'
 import { CARD_CATALOG, type CardType } from './game/cards'
-import type { ActionMode, CityState, GameEvent, GameState, PlayerId } from './game/types'
-
-function Dialog({
-  className = '',
-  children,
-}: {
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="overlay-backdrop">
-      <div className={`overlay-card ${className}`.trim()}>{children}</div>
-    </div>
-  )
-}
-
-// ─── Setup Screen ────────────────────────────────────────────────────────────
-
-function SetupScreen({
-  onStart,
-  onCancel,
-}: {
-  onStart: (names: Record<PlayerId, string>) => void
-  onCancel: () => void
-}) {
-  const [p1Name, setP1Name] = useState(DEFAULT_PLAYER_NAMES.P1)
-  const [p2Name, setP2Name] = useState(DEFAULT_PLAYER_NAMES.P2)
-
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    onStart({
-      P1: p1Name.trim() || DEFAULT_PLAYER_NAMES.P1,
-      P2: p2Name.trim() || DEFAULT_PLAYER_NAMES.P2,
-    })
-  }
-
-  return (
-    <div className="overlay-backdrop">
-      <div className="overlay-card setup-card">
-        <header className="setup-card__head">
-          <div>
-            <p className="section-eyebrow">Komutanlık Kurulumu</p>
-            <h2>Kuvvetlerinizi adlandırın</h2>
-          </div>
-          <button type="button" className="button button--ghost button--compact" onClick={onCancel}>
-            Vazgeç
-          </button>
-        </header>
-
-        <p className="setup-card__hint">
-          İsimler boş bırakılırsa varsayılanlar atanır. Sonraki adımda harita üzerinden başkentlerinizi seçeceksiniz.
-        </p>
-
-        <form className="setup-form" onSubmit={handleSubmit}>
-          <div className="setup-row">
-            <label className="setup-label" htmlFor="name-p1">
-              <span className="setup-label__dot setup-label__dot--p1" />
-              Mavi Komutanlık
-            </label>
-            <input
-              id="name-p1"
-              className="setup-input"
-              type="text"
-              value={p1Name}
-              maxLength={32}
-              placeholder={DEFAULT_PLAYER_NAMES.P1}
-              onChange={(e) => setP1Name(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="setup-row">
-            <label className="setup-label" htmlFor="name-p2">
-              <span className="setup-label__dot setup-label__dot--p2" />
-              Kırmızı Komutanlık
-            </label>
-            <input
-              id="name-p2"
-              className="setup-input"
-              type="text"
-              value={p2Name}
-              maxLength={32}
-              placeholder={DEFAULT_PLAYER_NAMES.P2}
-              onChange={(e) => setP2Name(e.target.value)}
-            />
-          </div>
-
-          <dl className="setup-facts">
-            <div>
-              <dt>Başlangıç kasası</dt>
-              <dd>2000 altın</dd>
-            </div>
-            <div>
-              <dt>Başkent vergisi</dt>
-              <dd>200/tur</dd>
-            </div>
-            <div>
-              <dt>Ordu / Sur</dt>
-              <dd>1000 altın</dd>
-            </div>
-            <div>
-              <dt>Harp aksiyonu</dt>
-              <dd>1/tur (+Kudret)</dd>
-            </div>
-          </dl>
-
-          <div className="setup-actions">
-            <button
-              type="submit"
-              className="button button--primary button--hero"
-              onClick={() => audioManager.playContext()}
-            >
-              Savaşı Başlat
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Home Screen ─────────────────────────────────────────────────────────────
-
-function HomeScreen({ onStart }: { onStart: () => void }) {
-  return (
-    <main className="home-shell">
-      <section className="home-hero">
-        <p className="section-eyebrow">Sıra Tabanlı Harp Oyunu · İki Komutan</p>
-        <h1>Anadolu Savaşları</h1>
-        <p className="home-hero__copy">
-          Başkentini belirle, vergilerle kasanı büyüt, ordu ve surlarınla cepheyi genişlet. Her tur tek büyük fetih
-          hamlesi var; strateji kartlarıyla düzeni bozabilir, rakibi köşeye sıkıştırabilirsin.
-        </p>
-        <div className="home-hero__actions">
-          <button
-            className="button button--primary button--hero"
-            onClick={() => {
-              audioManager.playContext()
-              onStart()
-            }}
-          >
-            Yeni Savaşa Başla
-          </button>
-          <span className="home-hero__meta">İki oyunculu · Aynı ekran · Otomatik kayıt</span>
-        </div>
-      </section>
-
-      <section className="home-grid">
-        <article className="home-tile">
-          <span className="home-tile__icon" aria-hidden>⚒</span>
-          <p className="section-eyebrow">Ekonomi</p>
-          <h3>Vergi ve kasa</h3>
-          <ul className="home-tile__list">
-            <li>Her tur başında şehir vergileri kasana düşer.</li>
-            <li>Başkent kalıcı <strong>200</strong> altın vergi verir.</li>
-            <li>Ordu ve sur inşası birim başına <strong>1000</strong> altın.</li>
-          </ul>
-        </article>
-
-        <article className="home-tile">
-          <span className="home-tile__icon" aria-hidden>⚔</span>
-          <p className="section-eyebrow">Muharebe</p>
-          <h3>Deterministik çözüm</h3>
-          <ul className="home-tile__list">
-            <li>Saldırı gücü gönderilen birlik sayısına eşittir.</li>
-            <li>Her 2 saldırı birimi hedefte <strong>1 sur</strong> yıkar.</li>
-            <li>Başkent savunmasına <strong>+1</strong> ek avantaj.</li>
-          </ul>
-        </article>
-
-        <article className="home-tile">
-          <span className="home-tile__icon" aria-hidden>◈</span>
-          <p className="section-eyebrow">Strateji Kartları</p>
-          <h3>Dört farklı kart</h3>
-          <ul className="home-tile__list">
-            <li><strong>Casus</strong>: rakip ordusunun 1/3'ünü kilitler.</li>
-            <li><strong>Kundaklama</strong>: hedef şehri böler, sur düşer.</li>
-            <li><strong>Kudret</strong>: bu tur +1 saldırı hakkı.</li>
-            <li><strong>Yatırım</strong>: kendi şehrinin vergisini 2'ye katlar.</li>
-          </ul>
-        </article>
-
-        <article className="home-tile">
-          <span className="home-tile__icon" aria-hidden>♛</span>
-          <p className="section-eyebrow">Zafer Koşulu</p>
-          <h3>Rakip başkenti al</h3>
-          <ul className="home-tile__list">
-            <li>Düşman başkenti düşerse savaş anında biter.</li>
-            <li>Turu bitirmeden önce birden fazla takviye yapabilirsin.</li>
-            <li>Oyun her hamlede otomatik kaydedilir.</li>
-          </ul>
-        </article>
-      </section>
-    </main>
-  )
-}
-
-// ─── Event Stream ─────────────────────────────────────────────────────────────
-
-const EVENT_STREAM_LIMIT = 10
-
-function EventStream({ events }: { events: GameEvent[] }) {
-  if (events.length === 0) {
-    return <p className="empty-state">Henüz kayıt oluşmadı.</p>
-  }
-
-  const recent = [...events].slice(-EVENT_STREAM_LIMIT).reverse()
-
-  return (
-    <div className="event-stream">
-      {recent.map((event) => (
-        <article key={event.id} className={`event-stream__item tone-${event.tone}`}>
-          <div className="event-stream__meta">
-            <span>Tur {event.turn}</span>
-            <span>Raund {event.round}</span>
-          </div>
-          <p>{event.message}</p>
-        </article>
-      ))}
-    </div>
-  )
-}
-
-// ─── Stat Pill ────────────────────────────────────────────────────────────────
-
-function StatPill({
-  label,
-  value,
-  meta,
-  accent,
-  interactive = false,
-  active = false,
-  onClick,
-}: {
-  label: string
-  value: React.ReactNode
-  meta?: React.ReactNode
-  accent?: string
-  interactive?: boolean
-  active?: boolean
-  onClick?: () => void
-}) {
-  const style = accent ? ({ '--accent': accent } as CSSProperties) : undefined
-  const className = ['stat-pill', accent ? 'has-accent' : '', interactive ? 'is-interactive' : '', active ? 'is-active' : '']
-    .filter(Boolean)
-    .join(' ')
-
-  if (onClick) {
-    return (
-      <button type="button" className={className} style={style} onClick={onClick}>
-        <span className="stat-pill__label">{label}</span>
-        <strong className="stat-pill__value">{value}</strong>
-        {meta ? <span className="stat-pill__meta">{meta}</span> : null}
-      </button>
-    )
-  }
-
-  return (
-    <div className={className} style={style}>
-      <span className="stat-pill__label">{label}</span>
-      <strong className="stat-pill__value">{value}</strong>
-      {meta ? <span className="stat-pill__meta">{meta}</span> : null}
-    </div>
-  )
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getTurnBanner(state: GameState) {
-  const names = state.playerNames
-
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return `${names[state.capitalSelectionPlayer]} başkent seçiyor`
-  }
-
-  if (state.stage === 'GAME_OVER' && state.winner) {
-    return `${names[state.winner]} kazandı`
-  }
-
-  return `${names[state.currentPlayer]} oyuncunun sırası`
-}
-
-function getActionPrompt(state: GameState, sourceCity: CityState | null, targetCity: CityState | null) {
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return 'Sahipsiz bir şehir seç ve Başkent Yap ile onayla.'
-  }
-
-  if (state.stage === 'GAME_OVER') {
-    return 'Savaş sona erdi. Yeni oyun veya ana sayfa için menüyü kullan.'
-  }
-
-  if (!state.actionMode) {
-    return state.conquestUsed
-      ? 'Ana fetih hakkı kullanıldı. Takviye yapabilir veya turu bitirebilirsin.'
-      : 'Bir şehir seç ve harita kartından aksiyon başlat.'
-  }
-
-  if (state.actionMode === 'ANNEX') {
-    if (!sourceCity) {
-      return 'İlhak için kendi şehirlerinden birini kaynak seç.'
-    }
-
-    return `${sourceCity.name} hazır. Komşu sahipsiz şehre tıkla → ilhak anında gerçekleşir.`
-  }
-
-  if (state.actionMode === 'TRANSFER') {
-    if (!sourceCity) {
-      return 'İntikal için kaynak şehir seç.'
-    }
-
-    if (!targetCity) {
-      return `${sourceCity.name} kaynağından dost bir hedef seç.`
-    }
-
-    return `${sourceCity.name} → ${targetCity.name} için birlik miktarını ayarla ve onayla.`
-  }
-
-  if (!sourceCity) {
-    return 'Saldırı için kaynak şehir seç.'
-  }
-
-  if (!targetCity) {
-    return `${sourceCity.name} hazır. Komşu düşman hedef seç.`
-  }
-
-  return `${sourceCity.name} → ${targetCity.name} için gücü ayarla ve onayla.`
-}
-
-function getCityActionTags(
-  city: CityState,
-  state: GameState,
-  validAnnexSourceIds: string[],
-  validTransferSourceIds: string[],
-  validAttackSourceIds: string[],
-) {
-  const tags: string[] = []
-
-  if (city.owner !== state.currentPlayer || state.stage !== 'PLAYING') {
-    return tags
-  }
-
-  if (validAnnexSourceIds.includes(city.id) && !state.conquestUsed) {
-    tags.push('İlhak')
-  }
-
-  if (validTransferSourceIds.includes(city.id)) {
-    tags.push('İntikal')
-  }
-
-  if (validAttackSourceIds.includes(city.id) && !state.conquestUsed) {
-    tags.push('Saldırı')
-  }
-
-  if (city.army >= CITY_ARMY_LIMIT) {
-    tags.push('Ordu tavan')
-  }
-
-  if (city.fortLevel >= CITY_FORT_LIMIT) {
-    tags.push('Sur tavan')
-  }
-
-  if (city.isCapital) {
-    tags.push('Başkent')
-  }
-
-  return tags
-}
-
-function getModeSummary(state: GameState) {
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return 'Kurulum'
-  }
-
-  if (state.stage === 'GAME_OVER') {
-    return 'Zafer'
-  }
-
-  if (state.actionMode) {
-    return getModeLabel(state.actionMode)
-  }
-
-  return state.conquestUsed ? 'Takviye' : 'Serbest'
-}
-
-function getConfirmLabel(state: GameState) {
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return 'Başkent Yap'
-  }
-
-  return 'Onayla'
-}
-
-function getConfirmReady(state: GameState) {
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return Boolean(state.selectedCityId)
-  }
-
-  if (state.stage !== 'PLAYING' || !state.actionMode) {
-    return false
-  }
-
-  if (state.actionMode === 'ANNEX') {
-    return Boolean(state.actionSourceCityId && state.actionTargetCityId)
-  }
-
-  return Boolean(state.actionSourceCityId && state.actionTargetCityId && state.actionAmount > 0)
-}
+import {
+  getActionPrompt,
+  getCityActionTags,
+  getConfirmLabel,
+  getConfirmReady,
+  getModeBadge,
+  getModeSummary,
+  getTurnBanner,
+} from './game/ui'
+import type { ActionMode } from './game/types'
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -559,7 +168,6 @@ export default function App() {
     : []
   const canBuildArmy = canBuildArmyInCity(state, selectedCity?.id ?? null)
   const canBuildFort = canBuildFortInCity(state, selectedCity?.id ?? null)
-  const cityPopoverOpen = Boolean(selectedCity && (isCityPopoverPinned || isCityPopoverHovered))
   const confirmReady = getConfirmReady(state)
   const confirmLabel = getConfirmLabel(state)
   const statusLine = state.pendingCardUse
@@ -778,71 +386,15 @@ export default function App() {
           <StatPill label="Kasa" value={`${currentPlayerState.treasury} altın`} meta={`+${currentIncome} gelir`} />
           <VolumeControl />
 
-          <div
-            className="city-pill-shell"
-            onMouseEnter={() => {
-              if (selectedCity) {
-                setIsCityPopoverHovered(true)
-              }
-            }}
-            onMouseLeave={() => setIsCityPopoverHovered(false)}
-          >
-            <StatPill
-              label="Seçili Şehir"
-              value={selectedCity ? selectedCity.name : 'Şehir seç'}
-              meta={selectedCity ? `${getCityOwnerLabel(selectedCity, names)} • ⚔ ${selectedCity.army}  ⚡ ${selectedCity.readyArmy}` : 'Haritadan seç'}
-              interactive={Boolean(selectedCity)}
-              active={cityPopoverOpen}
-              onClick={
-                selectedCity
-                  ? () => {
-                      setIsCityPopoverPinned((current) => !current)
-                    }
-                  : undefined
-              }
-            />
-
-            {selectedCity && cityPopoverOpen ? (
-              <div className="city-popover">
-                <div className="city-popover__header">
-                  <div>
-                    <span className="section-eyebrow">Şehir Özeti</span>
-                    <h3>{selectedCity.name}</h3>
-                  </div>
-                  <span className={`owner-pill owner-pill--${selectedCity.owner ?? 'neutral'}`}>
-                    {getCityOwnerLabel(selectedCity, names)}
-                  </span>
-                </div>
-                <div className="mini-stat-grid">
-                  <div className="mini-stat">
-                    <span>Vergi</span>
-                    <strong>{selectedCity.baseTax}</strong>
-                  </div>
-                  <div className="mini-stat">
-                    <span>Ordu</span>
-                    <strong>{selectedCity.army}</strong>
-                  </div>
-                  <div className="mini-stat">
-                    <span>⚡ Hazır</span>
-                    <strong>{selectedCity.readyArmy}</strong>
-                  </div>
-                  <div className="mini-stat">
-                    <span>Sur</span>
-                    <strong>{selectedCity.fortLevel}</strong>
-                  </div>
-                </div>
-                {selectedCityActionTags.length > 0 ? (
-                  <div className="tag-row">
-                    {selectedCityActionTags.map((tag) => (
-                      <span key={tag} className="info-tag">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <CityPopover
+            selectedCity={selectedCity}
+            playerNames={names}
+            isHovered={isCityPopoverHovered}
+            isPinned={isCityPopoverPinned}
+            tags={selectedCityActionTags}
+            onHoverChange={setIsCityPopoverHovered}
+            onTogglePin={() => setIsCityPopoverPinned((current) => !current)}
+          />
 
           <StatPill
             label="Mod"
@@ -853,19 +405,9 @@ export default function App() {
 
         <div className="command-bar__actions">
           <div className="mode-cluster mode-cluster--passive">
-            <span className="info-tag">
-              {state.stage === 'CAPITAL_SELECTION'
-                ? 'Kurulum'
-                : state.stage === 'GAME_OVER'
-                  ? 'Savaş Sonu'
-                  : state.actionMode
-                    ? getModeLabel(state.actionMode)
-                    : state.conquestUsed
-                      ? 'Takviye Modu'
-                      : 'Serbest Komut'}
-            </span>
+            <InfoTag>{getModeBadge(state)}</InfoTag>
             {state.stage === 'PLAYING' && state.conquestUsed ? (
-              <span className="info-tag">Ana hamle kullanıldı</span>
+              <InfoTag tone="cap-full">Ana hamle kullanıldı</InfoTag>
             ) : null}
           </div>
         </div>
@@ -896,37 +438,21 @@ export default function App() {
           contextCard={contextCard}
         />
 
-        {state.stage !== 'GAME_OVER' ? (
-          <>
-            <div className="corner-actions corner-actions--secondary">
-              <button className="button button--ghost button--compact" onClick={handleClear}>
-                Temizle
-              </button>
-              <button className="button button--ghost button--compact" onClick={() => setIsCardsOpen(true)}>
-                Kartlar
-              </button>
-              <button className="button button--ghost button--compact" onClick={() => setIsLogOpen(true)}>
-                Günlük
-              </button>
-              <button className="button button--ghost button--compact" onClick={() => setIsMenuOpen(true)}>
-                Menü
-              </button>
-            </div>
-
-            <div className="corner-actions corner-actions--primary">
-              {state.stage === 'PLAYING' ? (
-                <button className="button button--ghost corner-button" onClick={() => { playEndTurnSfx(); dispatch({ type: 'END_TURN' }) }}>
-                  Turu Bitir
-                </button>
-              ) : null}
-              {(state.stage === 'CAPITAL_SELECTION' || state.actionMode) && (
-                <button className="button button--primary corner-button" onClick={handleConfirm} disabled={!confirmReady}>
-                  {confirmLabel}
-                </button>
-              )}
-            </div>
-          </>
-        ) : null}
+        <BoardCornerActions
+          stage={state.stage}
+          actionMode={state.actionMode}
+          confirmReady={confirmReady}
+          confirmLabel={confirmLabel}
+          onOpenMenu={() => setIsMenuOpen(true)}
+          onOpenCards={() => setIsCardsOpen(true)}
+          onOpenLog={() => setIsLogOpen(true)}
+          onClear={handleClear}
+          onEndTurn={() => {
+            playEndTurnSfx()
+            dispatch({ type: 'END_TURN' })
+          }}
+          onConfirm={handleConfirm}
+        />
       </main>
 
       {isLogOpen ? (
@@ -940,7 +466,7 @@ export default function App() {
               Kapat
             </button>
           </div>
-          <EventStream events={state.events} />
+          <EventStream events={state.events} playerNames={names} />
         </Dialog>
       ) : null}
 

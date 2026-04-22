@@ -191,7 +191,14 @@ function setCityFort(city: CityState, fortLevel: number): CityState {
   }
 }
 
-function createEvent(state: GameState, tone: EventTone, message: string): GameState {
+function createEvent(
+  state: GameState,
+  tone: EventTone,
+  message: string,
+  actor: GameState['events'][number]['actor'] = state.stage === 'PLAYING' || state.stage === 'CAPITAL_SELECTION'
+    ? state.currentPlayer
+    : 'SYSTEM',
+): GameState {
   return {
     ...state,
     events: [
@@ -201,6 +208,7 @@ function createEvent(state: GameState, tone: EventTone, message: string): GameSt
         round: getRoundNumber(state.turn),
         tone,
         message,
+        actor,
       },
       ...state.events,
     ].slice(0, 48),
@@ -1624,7 +1632,7 @@ function applyYatirim(state: GameState, targetCityId: string): GameState {
   )
 }
 
-function useCardOnCity(state: GameState, cardType: CardType, cityId: string): GameState {
+function applyCardOnCity(state: GameState, cardType: CardType, cityId: string): GameState {
   if (state.stage !== 'PLAYING') return state
 
   switch (cardType) {
@@ -1641,7 +1649,7 @@ function useCardOnCity(state: GameState, cardType: CardType, cityId: string): Ga
   }
 }
 
-function useCardSelf(state: GameState, cardType: CardType): GameState {
+function applyCardOnSelf(state: GameState, cardType: CardType): GameState {
   if (state.stage !== 'PLAYING') return state
 
   if (cardType === 'KUDRET') return applyKudret(state)
@@ -1752,10 +1760,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return cancelCardUse(state)
 
     case 'USE_CARD_SELF':
-      return useCardSelf(state, action.cardType)
+      return applyCardOnSelf(state, action.cardType)
 
     case 'USE_CARD_ON_CITY':
-      return useCardOnCity(state, action.cardType, action.cityId)
+      return applyCardOnCity(state, action.cardType, action.cityId)
 
     default:
       return state
