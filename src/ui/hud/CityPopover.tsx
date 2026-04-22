@@ -9,6 +9,10 @@ interface CityPopoverProps {
   isHovered: boolean
   isPinned: boolean
   tags: string[]
+  /** Seçili şehir yokken pill'in value alanında görünen bağlam duyarlı metin. */
+  emptyPlaceholder: string
+  /** Seçili şehir yokken pill'in meta alanında görünen ikincil ipucu. */
+  emptyMeta: string
   onHoverChange: (hovered: boolean) => void
   onTogglePin: () => void
 }
@@ -19,6 +23,8 @@ export function CityPopover({
   isHovered,
   isPinned,
   tags,
+  emptyPlaceholder,
+  emptyMeta,
   onHoverChange,
   onTogglePin,
 }: CityPopoverProps) {
@@ -34,11 +40,11 @@ export function CityPopover({
     >
       <StatPill
         label="Seçili Şehir"
-        value={selectedCity ? selectedCity.name : 'Şehir seç'}
+        value={selectedCity ? selectedCity.name : emptyPlaceholder}
         meta={
           selectedCity
             ? `${getCityOwnerLabel(selectedCity, playerNames)} • ⚔ ${selectedCity.army}  ⚡ ${selectedCity.readyArmy}`
-            : 'Haritadan seç'
+            : emptyMeta
         }
         interactive={Boolean(selectedCity)}
         active={isOpen}

@@ -3,7 +3,7 @@
 // bu seçicileri çağırarak aynı cümle ve ipucu havuzundan beslenir.
 
 import { CITY_ARMY_LIMIT, CITY_FORT_LIMIT, getModeLabel } from './state'
-import type { CityState, GameState } from './types'
+import type { ActionMode, CityState, GameState } from './types'
 
 export function getTurnBanner(state: GameState): string {
   const names = state.playerNames
@@ -162,3 +162,117 @@ export function getModeBadge(state: GameState): string {
   return state.conquestUsed ? 'Takviye Modu' : 'Serbest Komut'
 }
 
+// ─── Karar berraklığı için ek seçiciler ──────────────────────────────────────
+
+/** Aktif oyuncu pill'ine metin değil, hamle durumu özeti döner. */
+export function getPhaseSummary(state: GameState): string {
+  if (state.stage === 'HOME' || state.stage === 'SETUP') {
+    return 'Kurulum bekliyor'
+  }
+
+  if (state.stage === 'CAPITAL_SELECTION') {
+    return 'Başkent seçimi'
+  }
+
+  if (state.stage === 'GAME_OVER') {
+    return 'Savaş bitti'
+  }
+
+  const bonus = state.players[state.currentPlayer].bonusAttacksRemaining
+
+  if (!state.conquestUsed) {
+    return 'Ana hamle hazır'
+  }
+
+  if (bonus > 0) {
+    return `Kudret bonusu +${bonus}`
+  }
+
+  return 'Takviye aşaması'
+}
+
+/** "Tur" pill'ine kim hangi tur bilgisini verir. */
+export function getTurnMeta(state: GameState): string {
+  if (state.stage === 'HOME' || state.stage === 'SETUP') {
+    return 'Oyun başlamadı'
+  }
+
+  if (state.stage === 'CAPITAL_SELECTION') {
+    const label = state.playerNames[state.capitalSelectionPlayer]
+    return `${label} başkenti`
+  }
+
+  return `${state.playerNames[state.currentPlayer]} sırası`
+}
+
+/** Boş "Seçili Şehir" pill'i için bağlam duyarlı yer tutucu. */
+export function getSelectedCityPlaceholder(state: GameState): string {
+  if (state.stage === 'CAPITAL_SELECTION') {
+    return 'Başkent adayı seç'
+  }
+
+  if (state.actionMode === 'ANNEX') {
+    return 'İlhak kaynağı seç'
+  }
+
+  if (state.actionMode === 'TRANSFER') {
+    return 'İntikal kaynağı seç'
+  }
+
+  if (state.actionMode === 'ATTACK') {
+    return 'Saldırı kaynağı seç'
+  }
+
+  if (state.pendingCardUse) {
+    return 'Kart hedefi seç'
+  }
+
+  return 'Haritadan şehir seç'
+}
+
+/** Status-strip'in ikincil/alternatif satırı. Yoksa null. */
+export function getSecondaryHint(state: GameState): string | null {
+  if (state.stage === 'CAPITAL_SELECTION') {
+    return 'Rakip başkente komşu iller kapalıdır.'
+  }
+
+  if (state.stage === 'GAME_OVER') {
+    return null
+  }
+
+  if (state.pendingCardUse) {
+    return 'ESC ile kartı iptal edebilirsin.'
+  }
+
+  if (state.actionMode) {
+    return 'ESC veya Temizle ile aksiyonu iptal edebilirsin.'
+  }
+
+  if (state.conquestUsed) {
+    return 'Ana hamle hakkı bu tur tükendi; takviye veya tur sonu.'
+  }
+
+  return 'Kart, takviye ve tur sonu seçenekleri her zaman açık.'
+}
+
+/**
+ * "Turu Bitir" butonunun görsel önemi — doğal sonraki aksiyon tur sonuysa
+ * primary ton, değilse ghost. Sadece sunum; reducer'ı etkilemez.
+ */
+export function isEndTurnPrimary(state: GameState): boolean {
+  if (state.stage !== 'PLAYING') return false
+  if (state.actionMode) return false
+  if (state.pendingCardUse) return false
+  if (!state.conquestUsed) return false
+  // Kudret bonusu varsa hâlâ saldırı seçeneği doğal — tur sonu öne çıkmasın.
+  if (state.players[state.currentPlayer].bonusAttacksRemaining > 0) return false
+  return true
+}
+
+/** Mod pill'ine iptal affordance'ı için: tıklama şu an aktif bir aksiyon iptaliyse true. */
+export function isModePillCancelable(state: GameState): boolean {
+  if (state.stage !== 'PLAYING') return false
+  return Boolean(state.actionMode || state.pendingCardUse)
+}
+
+export type ActionModeLike = ActionMode | null

@@ -6,7 +6,6 @@ import { BoardCornerActions } from './ui/hud/BoardCornerActions'
 import { CityPopover } from './ui/hud/CityPopover'
 import { Dialog } from './ui/hud/Dialog'
 import { EventStream } from './ui/hud/EventStream'
-import { InfoTag } from './ui/hud/InfoTag'
 import { StatPill } from './ui/hud/StatPill'
 import { HomeScreen } from './ui/screens/HomeScreen'
 import { SetupScreen } from './ui/screens/SetupScreen'
@@ -41,9 +40,14 @@ import {
   getCityActionTags,
   getConfirmLabel,
   getConfirmReady,
-  getModeBadge,
   getModeSummary,
+  getPhaseSummary,
+  getSecondaryHint,
+  getSelectedCityPlaceholder,
   getTurnBanner,
+  getTurnMeta,
+  isEndTurnPrimary,
+  isModePillCancelable,
 } from './game/ui'
 import type { ActionMode } from './game/types'
 
@@ -372,6 +376,19 @@ export default function App() {
     )
   }
 
+  const phaseSummary = getPhaseSummary(state)
+  const turnMeta = getTurnMeta(state)
+  const emptyCityPlaceholder = getSelectedCityPlaceholder(state)
+  const secondaryHint = getSecondaryHint(state)
+  const modeCancelable = isModePillCancelable(state)
+  const endTurnPrimary = isEndTurnPrimary(state)
+  const modeLabel = getModeSummary(state)
+  const modeMeta = modeCancelable
+    ? 'İptal için tıkla'
+    : state.conquestUsed
+      ? 'Ana hamle tükendi'
+      : 'Ana hamle hazır'
+
   return (
     <div className="app-shell" data-player={state.currentPlayer}>
       <header className="command-bar">
@@ -379,11 +396,22 @@ export default function App() {
           <StatPill
             label="Aktif Oyuncu"
             value={names[state.currentPlayer]}
-            meta={getTurnBanner(state)}
+            meta={phaseSummary}
             accent={PLAYER_META[state.currentPlayer].accent}
+            title={getTurnBanner(state)}
           />
-          <StatPill label="Tur" value={`Tur ${round}`} meta={state.stage === 'CAPITAL_SELECTION' ? 'Kurulum' : 'Cephe'} />
-          <StatPill label="Kasa" value={`${currentPlayerState.treasury} altın`} meta={`+${currentIncome} gelir`} />
+          <StatPill
+            label="Tur"
+            value={`Tur ${round}`}
+            meta={turnMeta}
+            title={`${round}. tur`}
+          />
+          <StatPill
+            label="Kasa"
+            value={`${currentPlayerState.treasury} altın`}
+            meta={`+${currentIncome} tur geliri`}
+            title="Kasadaki toplam altın ve bir sonraki tur başı beklenen vergi"
+          />
           <VolumeControl />
 
           <CityPopover
@@ -392,27 +420,31 @@ export default function App() {
             isHovered={isCityPopoverHovered}
             isPinned={isCityPopoverPinned}
             tags={selectedCityActionTags}
+            emptyPlaceholder={emptyCityPlaceholder}
+            emptyMeta={secondaryHint ?? 'Haritadan seç'}
             onHoverChange={setIsCityPopoverHovered}
             onTogglePin={() => setIsCityPopoverPinned((current) => !current)}
           />
 
           <StatPill
             label="Mod"
-            value={getModeSummary(state)}
-            meta={state.conquestUsed ? 'Ana hamle kullanıldı' : 'Ana hamle hazır'}
+            value={modeLabel}
+            meta={modeMeta}
+            interactive={modeCancelable}
+            active={modeCancelable}
+            tone={modeCancelable ? 'alert' : 'neutral'}
+            onClick={modeCancelable ? handleClear : undefined}
+            title={modeCancelable ? 'Aktif aksiyonu iptal et' : undefined}
+            ariaLabel={modeCancelable ? `${modeLabel} modunu iptal et` : undefined}
           />
         </div>
 
-        <div className="command-bar__actions">
-          <div className="mode-cluster mode-cluster--passive">
-            <InfoTag>{getModeBadge(state)}</InfoTag>
-            {state.stage === 'PLAYING' && state.conquestUsed ? (
-              <InfoTag tone="cap-full">Ana hamle kullanıldı</InfoTag>
-            ) : null}
-          </div>
+        <div className="status-strip" role="status" aria-live="polite">
+          <span className="status-strip__primary">{statusLine}</span>
+          {secondaryHint ? (
+            <span className="status-strip__secondary">{secondaryHint}</span>
+          ) : null}
         </div>
-
-        <div className="status-strip">{statusLine}</div>
       </header>
 
       <main className="board-area">
@@ -443,6 +475,7 @@ export default function App() {
           actionMode={state.actionMode}
           confirmReady={confirmReady}
           confirmLabel={confirmLabel}
+          endTurnPrimary={endTurnPrimary}
           onOpenMenu={() => setIsMenuOpen(true)}
           onOpenCards={() => setIsCardsOpen(true)}
           onOpenLog={() => setIsLogOpen(true)}

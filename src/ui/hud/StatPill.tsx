@@ -7,6 +7,9 @@ interface StatPillProps {
   accent?: string
   interactive?: boolean
   active?: boolean
+  tone?: 'neutral' | 'alert'
+  title?: string
+  ariaLabel?: string
   onClick?: () => void
 }
 
@@ -17,6 +20,9 @@ export function StatPill({
   accent,
   interactive = false,
   active = false,
+  tone = 'neutral',
+  title,
+  ariaLabel,
   onClick,
 }: StatPillProps) {
   const style = accent ? ({ '--accent': accent } as CSSProperties) : undefined
@@ -25,13 +31,21 @@ export function StatPill({
     accent ? 'has-accent' : '',
     interactive ? 'is-interactive' : '',
     active ? 'is-active' : '',
+    tone === 'alert' ? 'is-alert' : '',
   ]
     .filter(Boolean)
     .join(' ')
 
   if (onClick) {
     return (
-      <button type="button" className={className} style={style} onClick={onClick}>
+      <button
+        type="button"
+        className={className}
+        style={style}
+        onClick={onClick}
+        title={title}
+        aria-label={ariaLabel}
+      >
         <span className="stat-pill__label">{label}</span>
         <strong className="stat-pill__value">{value}</strong>
         {meta ? <span className="stat-pill__meta">{meta}</span> : null}
@@ -40,7 +54,7 @@ export function StatPill({
   }
 
   return (
-    <div className={className} style={style}>
+    <div className={className} style={style} title={title}>
       <span className="stat-pill__label">{label}</span>
       <strong className="stat-pill__value">{value}</strong>
       {meta ? <span className="stat-pill__meta">{meta}</span> : null}
