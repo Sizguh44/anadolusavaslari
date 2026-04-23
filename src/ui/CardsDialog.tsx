@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   CARD_CATALOG,
   CARD_PRICES,
@@ -7,6 +8,7 @@ import {
   type CardType,
 } from '../game/cards'
 import type { GameState, PlayerId } from '../game/types'
+import { useFocusTrap, useInertBackground } from './hud/useFocusTrap'
 
 interface CardsDialogProps {
   state: GameState
@@ -37,10 +39,20 @@ export function CardsDialog({
   const treasury = player.treasury
   const investedCount = player.investedCityIds.length
   const pendingType = state.pendingCardUse?.type ?? null
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  useFocusTrap(panelRef)
+  useInertBackground(panelRef)
 
   return (
     <div className="overlay-backdrop">
-      <div className="cards-panel" role="dialog" aria-modal="true" aria-label="Kart arayüzü">
+      <div
+        ref={panelRef}
+        className="cards-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Kart arayüzü"
+        tabIndex={-1}
+      >
         <header className="cards-panel__head">
           <div className="cards-panel__title">
             <p className="section-eyebrow">Strateji Kartları</p>

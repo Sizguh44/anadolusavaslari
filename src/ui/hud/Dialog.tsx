@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { useFocusTrap, useInertBackground } from './useFocusTrap'
 
 interface DialogProps {
   className?: string
@@ -15,19 +16,17 @@ interface DialogProps {
 /**
  * Tüm overlay modalları için ortak, erişilebilir kabuk.
  * - role=dialog + aria-modal=true
- * - açılışta odak bu yüzeye kayar (screen reader modal bildirimi alır)
- * - kapanışta odağı çağıranın sağlamasına bırakırız (ESC/buton akışları zaten var)
+ * - açılışta odak ilk odaklanabilir elemana (yoksa container'a) kayar
+ * - Tab/Shift+Tab modal sınırları içinde hapsedilir (focus trap)
+ * - modal açıkken arka plan kardeş DOM ağacı inert — ekran okuyucu ve klavye
+ *   arka plana erişemez
+ * - kapanışta odak modal açılmadan önce odaklı olan elemana döner
  */
 export function Dialog({ className = '', children, labelledBy, ariaLabel }: DialogProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    const card = cardRef.current
-    if (!card) return
-    // İçinde zaten odaklanmış bir eleman varsa onu bozmayız.
-    if (card.contains(document.activeElement)) return
-    card.focus({ preventScroll: true })
-  }, [])
+  useFocusTrap(cardRef)
+  useInertBackground(cardRef)
 
   return (
     <div className="overlay-backdrop">

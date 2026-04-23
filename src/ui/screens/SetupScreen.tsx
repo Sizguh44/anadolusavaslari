@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { audioManager } from '../../engine/audioManager'
 import { DEFAULT_PLAYER_NAMES } from '../../game/state'
 import type { PlayerId } from '../../game/types'
+import { useFocusTrap, useInertBackground } from '../hud/useFocusTrap'
 
 interface SetupScreenProps {
   onStart: (names: Record<PlayerId, string>) => void
@@ -11,6 +12,9 @@ interface SetupScreenProps {
 export function SetupScreen({ onStart, onCancel }: SetupScreenProps) {
   const [p1Name, setP1Name] = useState(DEFAULT_PLAYER_NAMES.P1)
   const [p2Name, setP2Name] = useState(DEFAULT_PLAYER_NAMES.P2)
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  useFocusTrap(cardRef)
+  useInertBackground(cardRef)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -22,7 +26,14 @@ export function SetupScreen({ onStart, onCancel }: SetupScreenProps) {
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-card setup-card" role="dialog" aria-modal="true" aria-label="Komutanlık Kurulumu">
+      <div
+        ref={cardRef}
+        className="overlay-card setup-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Komutanlık Kurulumu"
+        tabIndex={-1}
+      >
         <header className="setup-card__head">
           <div>
             <p className="section-eyebrow">Komutanlık Kurulumu</p>

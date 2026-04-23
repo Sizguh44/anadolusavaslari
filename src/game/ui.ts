@@ -146,22 +146,6 @@ export function getConfirmReady(state: GameState): boolean {
   return Boolean(state.actionSourceCityId && state.actionTargetCityId && state.actionAmount > 0)
 }
 
-export function getModeBadge(state: GameState): string {
-  if (state.stage === 'CAPITAL_SELECTION') {
-    return 'Kurulum'
-  }
-
-  if (state.stage === 'GAME_OVER') {
-    return 'Savaş Sonu'
-  }
-
-  if (state.actionMode) {
-    return getModeLabel(state.actionMode)
-  }
-
-  return state.conquestUsed ? 'Takviye Modu' : 'Serbest Komut'
-}
-
 // ─── Karar berraklığı için ek seçiciler ──────────────────────────────────────
 
 /** Aktif oyuncu pill'ine metin değil, hamle durumu özeti döner. */
@@ -191,18 +175,21 @@ export function getPhaseSummary(state: GameState): string {
   return 'Takviye aşaması'
 }
 
-/** "Tur" pill'ine kim hangi tur bilgisini verir. */
+/** "Tur" pill'ine faz bağlamı — oyuncu adı tekrarı yok. */
 export function getTurnMeta(state: GameState): string {
   if (state.stage === 'HOME' || state.stage === 'SETUP') {
     return 'Oyun başlamadı'
   }
 
   if (state.stage === 'CAPITAL_SELECTION') {
-    const label = state.playerNames[state.capitalSelectionPlayer]
-    return `${label} başkenti`
+    return 'Kurulum'
   }
 
-  return `${state.playerNames[state.currentPlayer]} sırası`
+  if (state.stage === 'GAME_OVER') {
+    return 'Savaş bitti'
+  }
+
+  return 'Cephe'
 }
 
 /** Boş "Seçili Şehir" pill'i için bağlam duyarlı yer tutucu. */
@@ -230,7 +217,8 @@ export function getSelectedCityPlaceholder(state: GameState): string {
   return 'Haritadan şehir seç'
 }
 
-/** Status-strip'in ikincil/alternatif satırı. Yoksa null. */
+/** Status-strip'in ikincil/alternatif satırı. Primary ile çakışmayacak yalnızca
+ *  gerçekten ek bilgi taşıdığı durumlarda döner; aksi halde null. */
 export function getSecondaryHint(state: GameState): string | null {
   if (state.stage === 'CAPITAL_SELECTION') {
     return 'Rakip başkente komşu iller kapalıdır.'
@@ -248,8 +236,10 @@ export function getSecondaryHint(state: GameState): string | null {
     return 'ESC veya Temizle ile aksiyonu iptal edebilirsin.'
   }
 
+  // conquestUsed durumunda primary zaten "Ana fetih hakkı kullanıldı. Takviye
+  // yapabilir veya turu bitirebilirsin." diyor — ikinci satır tekrar olmasın.
   if (state.conquestUsed) {
-    return 'Ana hamle hakkı bu tur tükendi; takviye veya tur sonu.'
+    return null
   }
 
   return 'Kart, takviye ve tur sonu seçenekleri her zaman açık.'
