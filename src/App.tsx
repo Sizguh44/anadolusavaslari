@@ -64,7 +64,17 @@ export default function App() {
   const [isCardsOpen, setIsCardsOpen] = useState(false)
   const [isCityPopoverPinned, setIsCityPopoverPinned] = useState(false)
   const [isCityPopoverHovered, setIsCityPopoverHovered] = useState(false)
+  // Tur geçişinde aktif oyuncu pill'inin kısa süreli vurgusu için bayrak.
+  const [turnChangeFlash, setTurnChangeFlash] = useState(false)
   const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sıra değiştiğinde ~900ms boyunca Aktif Oyuncu pill'i kısa bir vurgu alır.
+  // Ekran metni değişikliğinin ötesinde sakin ama fark edilir bir tepki.
+  useEffect(() => {
+    setTurnChangeFlash(true)
+    const handle = window.setTimeout(() => setTurnChangeFlash(false), 900)
+    return () => window.clearTimeout(handle)
+  }, [state.currentPlayer, state.turn])
 
   // ── Theme: apply data-player attribute to root whenever current player changes
   useEffect(() => {
@@ -405,6 +415,7 @@ export default function App() {
             meta={phaseSummary}
             accent={PLAYER_META[state.currentPlayer].accent}
             title={getTurnBanner(state)}
+            flashing={turnChangeFlash}
           />
           <StatPill
             label="Tur"
@@ -499,7 +510,7 @@ export default function App() {
       </main>
 
       {isLogOpen ? (
-        <Dialog className="overlay-card--wide">
+        <Dialog className="overlay-card--wide" ariaLabel="Olay Günlüğü">
           <div className="modal-head">
             <div>
               <p className="section-eyebrow">Olay Günlüğü</p>
@@ -514,7 +525,7 @@ export default function App() {
       ) : null}
 
       {isMenuOpen ? (
-        <Dialog className="overlay-card--narrow">
+        <Dialog className="overlay-card--narrow" ariaLabel="Oyun Menüsü">
           <div className="modal-head">
             <div>
               <p className="section-eyebrow">Oyun Menüsü</p>
@@ -561,7 +572,7 @@ export default function App() {
       ) : null}
 
       {state.stage === 'GAME_OVER' && state.winner && state.victorySummary ? (
-        <Dialog className="victory-card">
+        <Dialog className="victory-card" ariaLabel="Savaş sonu — Büyük Zafer">
           <p className="section-eyebrow">Büyük Zafer</p>
           <h2>{names[state.winner]}</h2>
           <p className="victory-card__lead">

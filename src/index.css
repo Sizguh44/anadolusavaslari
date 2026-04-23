@@ -30,6 +30,28 @@
   --theme-accent: #3f80ff;
   --theme-accent-soft: rgba(63, 128, 255, 0.14);
   --theme-border: rgba(63, 128, 255, 0.22);
+
+  /* ── Motion tokens — tutarlı süre ve easing sistemi.
+     Kısa ve tutarlı: UI öğeleri aynı ritimde nefes alır. */
+  --motion-instant: 80ms;
+  --motion-short: 140ms;
+  --motion-medium: 220ms;
+  --motion-long: 360ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Kullanıcı sistem ayarlarında azaltılmış hareket istiyorsa, tüm süreleri
+   neredeyse sıfıra indir; bilgi akışı korunur, gereksiz hareket gider. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Switch theme tokens when P2 is active */
@@ -110,7 +132,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  transition: background 600ms ease;
+  transition: background var(--motion-long) var(--ease-out-soft);
 }
 
 .app-shell[data-player='P1']::before {
@@ -212,11 +234,12 @@ p {
   color: var(--text);
   background: linear-gradient(180deg, rgba(28, 44, 60, 0.96), rgba(18, 28, 39, 0.98));
   transition:
-    transform 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    opacity 140ms ease,
-    background 140ms ease;
+    transform var(--motion-short) var(--ease-out),
+    border-color var(--motion-short) var(--ease-out),
+    box-shadow var(--motion-short) var(--ease-out),
+    opacity var(--motion-short) var(--ease-out),
+    background var(--motion-short) var(--ease-out),
+    filter var(--motion-short) var(--ease-out);
 }
 
 .button {
@@ -225,33 +248,48 @@ p {
   border-radius: 15px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  will-change: transform;
 }
 
 .button:hover:not(:disabled),
 .tab-button:hover:not(:disabled),
 .city-chip:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.3);
+  filter: brightness(1.06);
 }
 
 .button:disabled,
 .tab-button:disabled,
 .city-chip:disabled {
-  opacity: 0.44;
+  opacity: 0.42;
   cursor: not-allowed;
+  filter: grayscale(0.25);
 }
 
 .button:active:not(:disabled),
 .tab-button:active:not(:disabled),
 .city-chip:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+  transform: translateY(0) scale(0.985);
+  filter: brightness(0.96);
+  transition-duration: var(--motion-instant);
+}
+
+.button:focus-visible,
+.tab-button:focus-visible,
+.city-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--theme-accent) 60%, var(--gold) 40%);
+  outline-offset: 2px;
 }
 
 .button--primary {
   background: linear-gradient(135deg, #3782f6 0%, #d87c42 100%);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 14px rgba(216, 124, 66, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.button--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(216, 124, 66, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .button--secondary {
@@ -266,6 +304,10 @@ p {
 
 .button--ghost {
   background: linear-gradient(180deg, rgba(21, 35, 48, 0.96), rgba(16, 26, 36, 0.96));
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(30, 48, 65, 0.98), rgba(22, 35, 48, 0.98));
 }
 
 .button--compact {
@@ -297,7 +339,7 @@ p {
 }
 
 @keyframes panelEntrance {
-  0% { opacity: 0; transform: translateY(12px) scale(0.98); }
+  0% { opacity: 0; transform: translateY(6px) scale(0.995); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -310,7 +352,7 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 20px rgba(220, 190, 140, 0.02);
   backdrop-filter: blur(24px);
-  animation: panelEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: panelEntrance var(--motion-medium) var(--ease-out) forwards;
   border-radius: 24px;
 }
 
@@ -395,7 +437,7 @@ p {
   gap: 0.4rem;
   padding: 1rem 1.1rem 1.05rem;
   position: relative;
-  transition: transform 240ms ease, border-color 240ms ease;
+  transition: transform var(--motion-medium) var(--ease-out), border-color var(--motion-medium) var(--ease-out);
   min-height: 0;
 }
 
@@ -734,6 +776,27 @@ p {
   border-color: rgba(209, 175, 112, 0.3);
 }
 
+/* Yeni gelen olay — yalnızca ilk satır ~700ms boyunca hafif bir "arrival"
+   hissi alır. Liste zıplamadan tek hedefte dikkat çeker. */
+@keyframes eventArrival {
+  0%   { transform: translateY(-3px); opacity: 0.4; }
+  60%  { transform: translateY(0);    opacity: 1; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
+
+.event-stream__item.is-fresh {
+  animation: eventArrival var(--motion-long) var(--ease-out);
+}
+
+.event-stream__item.is-fresh::before {
+  animation: freshStripeGlow 700ms var(--ease-out-soft);
+}
+
+@keyframes freshStripeGlow {
+  0%   { filter: brightness(1.6); }
+  100% { filter: brightness(1); }
+}
+
 .turkey-map:active {
   cursor: grabbing;
 }
@@ -773,11 +836,11 @@ p {
   vector-effect: non-scaling-stroke;
   cursor: pointer;
   transition:
-    fill 140ms ease,
-    opacity 140ms ease,
-    stroke 140ms ease,
-    stroke-width 140ms ease,
-    filter 140ms ease;
+    fill var(--motion-short) var(--ease-out),
+    opacity var(--motion-short) var(--ease-out),
+    stroke var(--motion-short) var(--ease-out),
+    stroke-width var(--motion-short) var(--ease-out),
+    filter var(--motion-short) var(--ease-out);
 }
 
 .map-city:focus {
@@ -1094,7 +1157,7 @@ p {
   padding: 1.5rem;
   background: rgba(3, 8, 12, 0.62);
   backdrop-filter: blur(8px);
-  animation: backdropIn 200ms ease-out;
+  animation: backdropIn var(--motion-medium) var(--ease-out);
 }
 
 @keyframes backdropIn {
@@ -1172,7 +1235,7 @@ p {
   border-bottom: 1px solid color-mix(in srgb, var(--theme-accent) 32%, rgba(212, 184, 130, 0.12));
   backdrop-filter: blur(18px);
   z-index: 10;
-  transition: border-bottom-color 400ms ease;
+  transition: border-bottom-color var(--motion-long) var(--ease-out);
 }
 
 .command-bar__top {
@@ -1203,6 +1266,10 @@ p {
   background: linear-gradient(180deg, rgba(18, 31, 43, 0.94), rgba(10, 20, 29, 0.97));
   box-shadow: var(--shadow);
   text-align: left;
+  transition:
+    transform var(--motion-short) var(--ease-out),
+    border-color var(--motion-short) var(--ease-out),
+    box-shadow var(--motion-short) var(--ease-out);
 }
 
 .stat-pill.has-accent::after {
@@ -1216,6 +1283,16 @@ p {
 
 .stat-pill.is-interactive {
   cursor: pointer;
+}
+
+.stat-pill.is-interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(233, 240, 245, 0.18);
+}
+
+.stat-pill.is-interactive:active {
+  transform: translateY(0) scale(0.99);
+  transition-duration: var(--motion-instant);
 }
 
 .stat-pill.is-active {
@@ -1236,6 +1313,17 @@ p {
 
 .stat-pill.is-alert .stat-pill__meta {
   color: #f1c163;
+}
+
+/* Tur geçişi anlık vurgusu — kısa süreli soft glow + border parlaması. */
+@keyframes statPillFlash {
+  0%   { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--theme-accent) 35%, transparent); border-color: rgba(233, 240, 245, 0.09); }
+  40%  { box-shadow: var(--shadow), 0 0 0 6px color-mix(in srgb, var(--theme-accent) 18%, transparent); border-color: color-mix(in srgb, var(--theme-accent) 45%, rgba(255, 255, 255, 0.2)); }
+  100% { box-shadow: var(--shadow), 0 0 0 0 transparent; border-color: rgba(233, 240, 245, 0.09); }
+}
+
+.stat-pill.is-flashing {
+  animation: statPillFlash 900ms var(--ease-out);
 }
 
 .stat-pill.is-interactive:focus-visible {
@@ -1371,7 +1459,7 @@ p {
   align-items: baseline;
   gap: 0.85rem;
   flex-wrap: wrap;
-  transition: border-color 400ms ease;
+  transition: border-color var(--motion-long) var(--ease-out);
 }
 
 .status-strip__primary {
@@ -1483,7 +1571,10 @@ p {
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(6px);
-  transition: transform 120ms ease, border-color 120ms ease;
+  transition:
+    transform var(--motion-short) var(--ease-out),
+    border-color var(--motion-short) var(--ease-out),
+    background var(--motion-short) var(--ease-out);
 }
 
 .map-legend__toggle:hover {
@@ -1507,7 +1598,7 @@ p {
   background: rgba(8, 17, 25, 0.94);
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
-  animation: tooltipFade 140ms ease-out;
+  animation: tooltipFade var(--motion-short) var(--ease-out);
 }
 
 .map-legend__item {
@@ -1578,12 +1669,12 @@ p {
   background: rgba(7, 16, 24, 0.94);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
   pointer-events: none;
-  animation: tooltipFade 120ms ease-out;
+  animation: tooltipFade var(--motion-short) var(--ease-out);
 }
 
 @keyframes tooltipFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .map-context-card {
@@ -1598,7 +1689,7 @@ p {
   backdrop-filter: blur(18px);
   display: grid;
   gap: 0.78rem;
-  animation: contextCardIn 180ms ease-out;
+  animation: contextCardIn var(--motion-medium) var(--ease-out);
 }
 
 @keyframes contextCardIn {
@@ -1718,6 +1809,39 @@ p {
   .map-card {
     min-height: 720px;
   }
+
+  /* Dar ekranda legend küçülüp köşe butonlarıyla çakışmasın — harita
+     üstünde sabit konumda kalır ama daha ince. */
+  .map-legend {
+    top: 0.55rem;
+    right: 0.55rem;
+  }
+
+  .map-legend__toggle {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+}
+
+/* Dokunmatik cihazlar için hover dışı bir feedback hattı: hover tabanlı
+   görsel sinyaller kaybolabileceği için :active ve focus-visible'a güveniyoruz.
+   Bu media query, hover'ı olmayan cihazlarda hover kurallarını yumuşatır. */
+@media (hover: none) {
+  .button:hover:not(:disabled),
+  .tab-button:hover:not(:disabled),
+  .city-chip:hover:not(:disabled) {
+    transform: none;
+    filter: none;
+  }
+
+  .stat-pill.is-interactive:hover {
+    transform: none;
+  }
+
+  .home-tile:hover {
+    transform: none;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1811,8 +1935,8 @@ p {
   color: var(--text);
   font-size: 1rem;
   transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+    border-color var(--motion-short) var(--ease-out),
+    box-shadow var(--motion-short) var(--ease-out);
 }
 
 .setup-input:focus {
@@ -1892,7 +2016,7 @@ p {
   border: 1px solid rgba(209, 175, 112, 0.2);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(24px);
-  animation: panelEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: panelEntrance var(--motion-medium) var(--ease-out) forwards;
   overflow: hidden;
 }
 
@@ -1964,7 +2088,7 @@ p {
   border: 1px solid rgba(233, 240, 245, 0.08);
   color: rgba(235, 240, 250, 0.92);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 20px rgba(0, 0, 0, 0.28);
-  transition: border-color 200ms ease, transform 200ms ease;
+  transition: border-color var(--motion-medium) var(--ease-out), transform var(--motion-medium) var(--ease-out);
   min-height: 0;
 }
 

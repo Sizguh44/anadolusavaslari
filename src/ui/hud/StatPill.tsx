@@ -8,6 +8,8 @@ interface StatPillProps {
   interactive?: boolean
   active?: boolean
   tone?: 'neutral' | 'alert'
+  /** Geçici bir "değişim oldu" vurgusu — ör. tur geçişi. */
+  flashing?: boolean
   title?: string
   ariaLabel?: string
   onClick?: () => void
@@ -21,6 +23,7 @@ export function StatPill({
   interactive = false,
   active = false,
   tone = 'neutral',
+  flashing = false,
   title,
   ariaLabel,
   onClick,
@@ -32,6 +35,7 @@ export function StatPill({
     interactive ? 'is-interactive' : '',
     active ? 'is-active' : '',
     tone === 'alert' ? 'is-alert' : '',
+    flashing ? 'is-flashing' : '',
   ]
     .filter(Boolean)
     .join(' ')

@@ -22,7 +22,7 @@ export function SetupScreen({ onStart, onCancel }: SetupScreenProps) {
 
   return (
     <div className="overlay-backdrop">
-      <div className="overlay-card setup-card">
+      <div className="overlay-card setup-card" role="dialog" aria-modal="true" aria-label="Komutanlık Kurulumu">
         <header className="setup-card__head">
           <div>
             <p className="section-eyebrow">Komutanlık Kurulumu</p>

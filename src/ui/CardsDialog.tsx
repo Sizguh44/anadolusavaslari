@@ -40,7 +40,7 @@ export function CardsDialog({
 
   return (
     <div className="overlay-backdrop">
-      <div className="cards-panel" role="dialog" aria-label="Kart arayüzü">
+      <div className="cards-panel" role="dialog" aria-modal="true" aria-label="Kart arayüzü">
         <header className="cards-panel__head">
           <div className="cards-panel__title">
             <p className="section-eyebrow">Strateji Kartları</p>
