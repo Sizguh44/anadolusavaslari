@@ -3,6 +3,8 @@ import { geoMercator, geoPath } from 'd3-geo'
 import type { FeatureCollection, Geometry } from 'geojson'
 import { getFeatureDisplayName, matchFeatureToCityDefinition, type MapFeatureProperties } from '../data/mapMatching'
 import { validateCityDefinitionsConsistency, validateMapFeatureCollection } from '../data/mapValidation'
+import { getMapCityClassName, getMapCityDecoration, type MapCityRole } from '../game/mapRoles'
+import type { CardType } from '../game/cards'
 import type { ActionMode, CityState, GameStage, PlayerId } from '../game/types'
 import { InfoTag } from './hud/InfoTag'
 
@@ -112,6 +114,9 @@ interface TurkeyMapBoardProps {
   validAttackTargetIds: string[]
   validCapitalForbiddenIds: string[]
   globalAnnexableTargetIds: string[]
+  /** Aktif kart hedefleme — harita yalnızca ilgili hedefleri parlatır. */
+  pendingCardType: CardType | null
+  cardTargetIds: string[]
   playerNames: Record<PlayerId, string>
   onCitySelect: (cityId: string) => void
   onMapBackgroundClick: () => void
@@ -232,6 +237,67 @@ function buildLabelState(
   return labelState
 }
 
+/**
+ * Rol bazlı minik glyph. Renk-dışı ikinci sinyal sağlar: oyuncu rengi körlüğü
+ * yaşasa bile şeklin kendisi anlamı taşır. `null` dönerse marker basılmaz.
+ */
+/** Rol → kısa Türkçe ekran okuyucu etiketi. `null` ise etiket eklenmez. */
+function getRoleAriaHint(role: MapCityRole): string | null {
+  switch (role) {
+    case 'annex-target':
+      return 'ilhak hedefi'
+    case 'transfer-target':
+      return 'intikal hedefi'
+    case 'attack-target':
+      return 'saldırı hedefi'
+    case 'target':
+      return 'seçilmiş hedef'
+    case 'source':
+      return 'aktif kaynak'
+    case 'source-candidate':
+      return 'kaynak adayı'
+    case 'capital-choice':
+      return 'başkent adayı'
+    case 'capital-forbidden':
+      return 'başkent olarak seçilemez'
+    case 'card-targetable':
+      return 'kart hedefi'
+    case 'invalid':
+      return 'geçersiz hedef'
+    case 'dimmed':
+      return 'bu mod için oynanmaz'
+    default:
+      return null
+  }
+}
+
+function getRoleGlyphForMarker(role: MapCityRole, actionMode: ActionMode | null): string | null {
+  switch (role) {
+    case 'annex-target':
+      return '+'
+    case 'transfer-target':
+      return '→'
+    case 'attack-target':
+      return '×'
+    case 'target':
+      // Seçilmiş hedef: moduna göre ikon; hedef halkası zaten pulse ile ayrışır.
+      if (actionMode === 'ANNEX') return '+'
+      if (actionMode === 'TRANSFER') return '→'
+      if (actionMode === 'ATTACK') return '×'
+      return '⦿'
+    case 'capital-choice':
+      return '♛'
+    case 'capital-forbidden':
+      return '∅'
+    case 'card-targetable':
+      return '◈'
+    case 'source-candidate':
+      return '•'
+    default:
+      return null
+  }
+}
+
 function zoomAroundPoint(
   current: ViewState,
   clientX: number,
@@ -276,6 +342,8 @@ export function TurkeyMapBoard({
   validAttackTargetIds,
   validCapitalForbiddenIds,
   globalAnnexableTargetIds,
+  pendingCardType,
+  cardTargetIds,
   playerNames,
   onCitySelect,
   onMapBackgroundClick,
@@ -466,69 +534,57 @@ export function TurkeyMapBoard({
     [cities, features, importantCityIds, view.zoom],
   )
 
-  // Pre-compute per-city rendering flags to avoid duplication across SVG layers
-  const cityRenderFlags = useMemo(() => {
-    const flags: Record<string, {
+  const cardTargetSet = useMemo(() => new Set(cardTargetIds), [cardTargetIds])
+
+  // Tek baskın görsel rol + ikinci-sinyal marker'ı için karar noktası.
+  // game/mapRoles.ts içindeki saf selector, çakışma kurallarını yönetir.
+  const cityDecorations = useMemo(() => {
+    const result: Record<string, {
+      role: MapCityRole
       pathClassName: string
       isSelected: boolean
       isSource: boolean
       isTarget: boolean
+      isCapital: boolean
     }> = {}
+    const ctx = {
+      stage,
+      currentPlayer,
+      actionMode,
+      selectedCityId,
+      sourceCityId,
+      targetCityId,
+      pendingCardType,
+      validAnnexSourceIds: validAnnexSourceSet,
+      validAnnexTargetIds: validAnnexTargetSet,
+      validTransferSourceIds: validTransferSourceSet,
+      validTransferTargetIds: validTransferTargetSet,
+      validAttackSourceIds: validAttackSourceSet,
+      validAttackTargetIds: validAttackTargetSet,
+      capitalForbiddenIds: capitalForbiddenSet,
+      globalAnnexableIds: globalAnnexableSet,
+      cardTargetIds: cardTargetSet,
+    }
 
     for (const feature of features) {
       const city = cities[feature.cityId]
       if (!city) continue
-      const isSelected = selectedCityId === feature.cityId
-      const isSource = sourceCityId === feature.cityId
-      const isTarget = targetCityId === feature.cityId
-      const isCapitalForbidden = stage === 'CAPITAL_SELECTION' && capitalForbiddenSet.has(feature.cityId) && city.owner === null
-      const isCapitalChoice = stage === 'CAPITAL_SELECTION' && city.owner === null && !isCapitalForbidden
-      const isAnnexSource = validAnnexSourceSet.has(feature.cityId)
-      const isAnnexTarget = validAnnexTargetSet.has(feature.cityId)
-      const isGlobalAnnexTarget = actionMode === 'ANNEX' && !sourceCityId && globalAnnexableSet.has(feature.cityId)
-      const isTransferSource = validTransferSourceSet.has(feature.cityId)
-      const isTransferTarget = validTransferTargetSet.has(feature.cityId)
-      const isAttackSource = validAttackSourceSet.has(feature.cityId)
-      const isAttackTarget = validAttackTargetSet.has(feature.cityId)
-      const isPlayable = stage === 'CAPITAL_SELECTION'
-        ? city.owner === null
-        : actionMode === 'ANNEX'
-          ? isAnnexSource || isAnnexTarget || isGlobalAnnexTarget
-          : actionMode === 'TRANSFER'
-            ? isTransferSource || isTransferTarget
-            : actionMode === 'ATTACK'
-              ? isAttackSource || isAttackTarget
-              : true
       const ownerClass = city.owner === 'P1' ? 'map-city--p1' : city.owner === 'P2' ? 'map-city--p2' : 'map-city--neutral'
-
-      flags[feature.cityId] = {
-        pathClassName: [
-          'map-city', ownerClass,
-          isSelected ? 'is-selected' : '',
-          isSource ? 'is-source' : '',
-          isTarget ? 'is-target' : '',
-          isCapitalChoice ? 'is-capital-choice' : '',
-          isCapitalForbidden ? 'is-capital-forbidden' : '',
-          isAnnexTarget ? 'is-annex-target' : '',
-          isGlobalAnnexTarget ? 'is-global-annex-target' : '',
-          isTransferTarget ? 'is-transfer-target' : '',
-          isAttackTarget ? 'is-attack-target' : '',
-          actionMode === 'ANNEX' && isAnnexSource ? 'is-annex-source' : '',
-          actionMode === 'TRANSFER' && isTransferSource ? 'is-transfer-source' : '',
-          actionMode === 'ATTACK' && isAttackSource ? 'is-attack-source' : '',
-          !isPlayable && actionMode ? 'is-dimmed' : '',
-          city.isCapital ? 'is-capital' : '',
-        ].filter(Boolean).join(' '),
-        isSelected,
-        isSource,
-        isTarget,
+      const decoration = getMapCityDecoration(city, ctx)
+      result[feature.cityId] = {
+        role: decoration.role,
+        pathClassName: getMapCityClassName(decoration, ownerClass),
+        isSelected: decoration.isSelected,
+        isSource: decoration.isSource,
+        isTarget: decoration.isTarget,
+        isCapital: decoration.isCapital,
       }
     }
 
-    return flags
-  }, [features, cities, selectedCityId, sourceCityId, targetCityId, stage, actionMode,
-    capitalForbiddenSet, validAnnexSourceSet, validAnnexTargetSet, validTransferSourceSet,
-    validTransferTargetSet, validAttackSourceSet, validAttackTargetSet, globalAnnexableSet])
+    return result
+  }, [features, cities, currentPlayer, selectedCityId, sourceCityId, targetCityId, stage, actionMode,
+    pendingCardType, capitalForbiddenSet, validAnnexSourceSet, validAnnexTargetSet, validTransferSourceSet,
+    validTransferTargetSet, validAttackSourceSet, validAttackTargetSet, globalAnnexableSet, cardTargetSet])
 
   function retryLoad() {
     setIsLoading(true)
@@ -715,8 +771,18 @@ export function TurkeyMapBoard({
         >
           {/* Layer 1: City region paths */}
           {features.map((feature) => {
-            const flags = cityRenderFlags[feature.cityId]
+            const flags = cityDecorations[feature.cityId]
             if (!flags) return null
+            const roleHint = getRoleAriaHint(flags.role)
+            const city = cities[feature.cityId]
+            const ownerLabel = city?.owner === 'P1'
+              ? playerNames.P1
+              : city?.owner === 'P2'
+                ? playerNames.P2
+                : 'sahipsiz'
+            const capitalSuffix = flags.isCapital ? ', başkent' : ''
+            const roleSuffix = roleHint ? `, ${roleHint}` : ''
+            const ariaLabel = `${feature.label}${capitalSuffix}, ${ownerLabel}${roleSuffix}`
 
             return (
               <path
@@ -724,7 +790,8 @@ export function TurkeyMapBoard({
                 d={feature.path}
                 data-city-id={feature.cityId}
                 className={flags.pathClassName}
-                aria-label={feature.label}
+                aria-label={ariaLabel}
+                aria-pressed={flags.isSelected}
                 role="button"
                 tabIndex={0}
                 onMouseEnter={(event) => updateHover(feature.cityId, event)}
@@ -752,12 +819,16 @@ export function TurkeyMapBoard({
           {/* Layer 2: Markers and labels (always rendered above all city paths) */}
           {features.map((feature) => {
             const city = cities[feature.cityId]
-            const flags = cityRenderFlags[feature.cityId]
+            const flags = cityDecorations[feature.cityId]
             const labelState = labelStateByCityId[feature.cityId] ?? { showName: false, showDetail: false }
             if (!flags || !city) return null
 
-            // Nothing to show for neutral empty cities at low zoom
-            if (!city.owner && city.army === 0 && !labelState.showName) return null
+            // Rol marker'ı — renk-dışı ikinci sinyal (ikon) her zaman gösterilir.
+            const roleGlyph = getRoleGlyphForMarker(flags.role, actionMode)
+
+            // Neutral & ordusu olmayan şehirler düşük zoom'da tamamen sessiz kalır
+            // — tek istisna: bir role marker'ı varsa onu göster.
+            if (!city.owner && city.army === 0 && !labelState.showName && !roleGlyph) return null
 
             // Build compact badge text: ⚔3 🛡2 ★
             const badgeParts: string[] = []
@@ -771,10 +842,18 @@ export function TurkeyMapBoard({
             const showArmyBadge = labelState.showName && city.army > 0
             const showFortBadge = labelState.showName && city.fortLevel > 0
 
-            if (!showCompactBadge && !showArmyBadge && !showFortBadge && !city.isCapital && !labelState.showName) return null
+            if (!showCompactBadge && !showArmyBadge && !showFortBadge && !city.isCapital && !labelState.showName && !roleGlyph) return null
 
             return (
               <g key={feature.cityId} transform={`translate(${feature.centroid[0]}, ${feature.centroid[1]})`} className="map-marker">
+                {/* Role marker — küçük ikon + ton halkası; renk-dışı ikinci sinyal */}
+                {roleGlyph ? (
+                  <g className={`role-marker role-marker--${flags.role}`} transform="translate(0,-16)">
+                    <circle r="7" />
+                    <text dy="0.35em">{roleGlyph}</text>
+                  </g>
+                ) : null}
+
                 {/* Compact badge: zoomed out — single minimal line */}
                 {showCompactBadge ? (
                   <g className={`compact-badge ${city.owner === currentPlayer ? 'is-current-player' : ''}`.trim()}>

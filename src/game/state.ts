@@ -1673,6 +1673,51 @@ export function getCityEspionageLock(state: GameState, cityId: string): number {
 
 export { getEffectiveEspionageLock, getAttackableReadyArmy, hasActiveEspionage, CARD_CATALOG, CARD_PRICES }
 
+/**
+ * Bekleyen kart kullanımı için geçerli hedef şehir id'lerini döner.
+ * Saf selector — reducer'ı etkilemez. UI harita işaretlemesi için tüketir.
+ */
+export function getCardTargetIds(state: GameState, cardType: CardType): string[] {
+  const currentPlayer = state.currentPlayer
+
+  if (cardType === 'CASUS') {
+    return Object.values(state.cities)
+      .filter(
+        (city) =>
+          city.owner &&
+          city.owner !== currentPlayer &&
+          !hasActiveEspionage(city, state.turn) &&
+          Math.floor(city.army * (1 / 3)) > 0,
+      )
+      .map((city) => city.id)
+  }
+
+  if (cardType === 'KUNDAKLAMA') {
+    return Object.values(state.cities)
+      .filter(
+        (city) =>
+          city.owner &&
+          city.owner !== currentPlayer &&
+          city.neighbors.some((neighborId) => state.cities[neighborId]?.owner === city.owner),
+      )
+      .map((city) => city.id)
+  }
+
+  if (cardType === 'YATIRIM') {
+    return Object.values(state.cities)
+      .filter(
+        (city) =>
+          city.owner === currentPlayer &&
+          !city.isCapital &&
+          !city.investmentApplied,
+      )
+      .map((city) => city.id)
+  }
+
+  // KUDRET hedef gerektirmez.
+  return []
+}
+
 function endTurn(state: GameState): GameState {
   if (state.stage !== 'PLAYING') {
     return state

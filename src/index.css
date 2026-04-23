@@ -129,13 +129,6 @@
     linear-gradient(180deg, #1a0c0c 0%, #241010 45%, #2a1414 100%);
 }
 
-/* Global annex eligible target — soft green glow for all potential targets */
-.map-city.is-global-annex-target {
-  filter: drop-shadow(0 0 5px rgba(99, 176, 131, 0.18));
-  stroke: rgba(99, 176, 131, 0.35);
-  stroke-width: 1.6px;
-}
-
 /* Turn end confirmation dialog */
 .confirm-turn-dialog {
   padding: 1.2rem;
@@ -797,16 +790,6 @@ p {
   stroke-width: 1.6px;
 }
 
-.map-city.is-dimmed {
-  cursor: default;
-}
-
-.map-city.is-dimmed:hover {
-  filter: brightness(1.02);
-  stroke: rgba(222, 233, 240, 0.16);
-  stroke-width: 1.1px;
-}
-
 .map-city--neutral {
   fill: #556c7d;
 }
@@ -817,10 +800,6 @@ p {
 
 .map-city--p2 {
   fill: #b85448;
-}
-
-.map-city.is-dimmed {
-  opacity: 0.34;
 }
 
 @keyframes cityPulse {
@@ -835,71 +814,189 @@ p {
   100% { filter: drop-shadow(0 0 8px rgba(255, 213, 142, 0.4)); transform: scale(1); }
 }
 
+/* ─── Rol-bazlı harita durumları (mapRoles.ts ile eşleşir) ─────────────── */
+
+/* Seçili — sabit, güçlü altın outline, hafif pulse. */
 .map-city.is-selected {
   stroke: #f0ce8c;
   stroke-width: 2.2px;
   animation: cityPulse 2s infinite ease-in-out;
 }
 
-.map-city.is-source {
+/* Aktif aksiyonun kaynağı — mavi hafif outline; seçili ile çakışırsa source baskın. */
+.map-city.is-source,
+.map-city--role-source {
   stroke: #95d1ff;
   stroke-width: 2.15px;
+  animation: none;
 }
 
-.map-city.is-target {
-  stroke: #ffd58e;
-  stroke-width: 2.3px;
-  animation: mapTargetPulse 1.8s infinite ease-in-out;
-}
-
-/* Aynı şehir hem seçili hem hedef olursa yalnızca hedef pulse'ı çalsın;
-   iki animasyon eş zamanlı döndüğünde stroke/filtreler titreşiyordu. */
+/* Hedef seçildi — turuncu outline + pulse. Aynı hücrede selected + target
+   olursa yalnızca bu pulse çalışır (target rolü selected'ı bastırır). */
+.map-city.is-target,
+.map-city--role-target,
 .map-city.is-selected.is-target {
+  stroke: #ffd58e;
+  stroke-width: 2.4px;
   animation: mapTargetPulse 1.8s infinite ease-in-out;
 }
 
-.map-city.is-annex-source {
-  filter: drop-shadow(0 0 8px rgba(99, 176, 131, 0.3));
-}
-
-.map-city.is-transfer-source {
-  filter: drop-shadow(0 0 8px rgba(95, 185, 219, 0.35));
-}
-
-.map-city.is-attack-source {
-  filter: drop-shadow(0 0 9px rgba(219, 145, 95, 0.4));
-}
-
-.map-city.is-annex-target,
-.map-city.is-capital-choice {
+/* Aday hedefler — kesik halka + ikon; pulse yok, çünkü aynı anda birden çok
+   aday görünür ve sürekli pulse haritayı kalabalıklaştırır. Seçim yapılınca
+   role=target'a dönüşür ve orada pulse çalışır. */
+.map-city--role-annex-target {
   stroke: #69c088;
-  animation: mapTargetPulse 2s infinite;
+  stroke-width: 2px;
+  stroke-dasharray: 5 3;
 }
 
-.map-city.is-transfer-target {
+.map-city--role-transfer-target {
   stroke: #76d4f2;
-  animation: mapTargetPulse 2s infinite;
+  stroke-width: 2px;
+  stroke-dasharray: 5 3;
 }
 
-.map-city.is-attack-target {
+.map-city--role-attack-target {
   stroke: #f1a95d;
-  animation: mapTargetPulse 1.6s infinite;
+  stroke-width: 2px;
+  stroke-dasharray: 4 2;
 }
 
-.map-city.is-capital {
-  stroke-width: 1.45px;
+/* Kurulum adayı — taç ikonu + kesik yeşil halka (pulse yok). */
+.map-city--role-capital-choice {
+  stroke: #69c088;
+  stroke-width: 2px;
+  stroke-dasharray: 5 3;
 }
 
-.map-city.is-capital-forbidden {
+/* Kurulum yasak — soluk kırmızı, yasak ikonu. */
+.map-city--role-capital-forbidden {
   filter: drop-shadow(0 0 6px rgba(213, 97, 77, 0.35));
   stroke: rgba(213, 97, 77, 0.72);
   stroke-width: 2px;
   opacity: 0.72;
 }
 
+/* Kart hedefleme — mor kesik halka + elmas ikon. */
+.map-city--role-card-targetable {
+  stroke: #d07cff;
+  stroke-width: 2.1px;
+  stroke-dasharray: 3 2;
+  filter: drop-shadow(0 0 6px rgba(208, 124, 255, 0.35));
+}
+
+/* Geçersiz hedef — soluk + kırık halka, sadece moda/karta aktifken. */
+.map-city--role-invalid {
+  opacity: 0.42;
+}
+
+/* Aktif modda source henüz seçilmemişse, kullanılabilecek kaynak adayı
+   şehirler ince noktalı halka ile belirginleşir — oyuncu haritayı tarayıp
+   kaynak seçebilir. */
+.map-city--role-source-candidate {
+  stroke: color-mix(in srgb, var(--theme-accent) 60%, rgba(255, 255, 255, 0.2));
+  stroke-width: 1.7px;
+  stroke-dasharray: 2 2;
+}
+
+/* Moda ilgisiz şehir — %34 opaklık, tıklanabilir değil. */
+.map-city--role-dimmed {
+  opacity: 0.34;
+  cursor: default;
+}
+
+.map-city--role-dimmed:hover {
+  filter: brightness(1.02);
+  stroke: rgba(222, 233, 240, 0.16);
+  stroke-width: 1.1px;
+}
+
+/* Başkent — ownership rengine ek kalın stroke + capital-star marker ile. */
+.map-city.is-capital {
+  stroke-width: 1.6px;
+}
+
 .map-marker,
 .map-marker * {
   pointer-events: none;
+}
+
+/* ─── Role marker: renk-dışı ikinci sinyal ikonu ──────────────────────── */
+.role-marker circle {
+  fill: rgba(12, 22, 32, 0.92);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 0.8px;
+}
+
+.role-marker text {
+  text-anchor: middle;
+  font-size: 8px;
+  font-weight: 700;
+  fill: #f5fbff;
+  letter-spacing: 0.01em;
+}
+
+.role-marker--annex-target circle,
+.role-marker--capital-choice circle {
+  stroke: rgba(105, 192, 136, 0.78);
+}
+
+.role-marker--annex-target text,
+.role-marker--capital-choice text {
+  fill: #bdecd0;
+}
+
+.role-marker--transfer-target circle {
+  stroke: rgba(118, 212, 242, 0.78);
+}
+
+.role-marker--transfer-target text {
+  fill: #caeefc;
+}
+
+.role-marker--attack-target circle {
+  stroke: rgba(241, 169, 93, 0.8);
+}
+
+.role-marker--attack-target text {
+  fill: #ffd9ba;
+}
+
+.role-marker--target circle {
+  stroke: rgba(255, 213, 142, 0.9);
+}
+
+.role-marker--target text {
+  fill: #ffe4b3;
+}
+
+.role-marker--capital-forbidden circle {
+  stroke: rgba(213, 97, 77, 0.7);
+}
+
+.role-marker--capital-forbidden text {
+  fill: #ffb3a2;
+}
+
+.role-marker--card-targetable circle {
+  stroke: rgba(208, 124, 255, 0.78);
+}
+
+.role-marker--card-targetable text {
+  fill: #f0d0ff;
+}
+
+.role-marker--source-candidate circle {
+  fill: rgba(12, 22, 32, 0.72);
+  stroke: color-mix(in srgb, var(--theme-accent) 60%, rgba(255, 255, 255, 0.2));
+  stroke-width: 0.6px;
+  r: 4.5px;
+}
+
+.role-marker--source-candidate text {
+  fill: color-mix(in srgb, var(--theme-accent) 75%, white);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ─── Compact badge: zoomed-out minimal indicator ─── */
@@ -1356,6 +1453,117 @@ p {
   background: rgba(9, 18, 27, 0.92);
   display: grid;
   gap: 0.4rem;
+}
+
+/* ─── Harita Göstergesi (Minimal Legend) ────────────────────────────── */
+.map-legend {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.map-legend__toggle {
+  pointer-events: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(233, 240, 245, 0.2);
+  background: rgba(8, 17, 25, 0.88);
+  color: var(--gold);
+  font-weight: 700;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.map-legend__toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(209, 175, 112, 0.5);
+}
+
+.map-legend.is-open .map-legend__toggle {
+  border-color: rgba(209, 175, 112, 0.55);
+}
+
+.map-legend__list {
+  pointer-events: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  display: grid;
+  gap: 0.4rem;
+  border-radius: 14px;
+  border: 1px solid rgba(233, 240, 245, 0.14);
+  background: rgba(8, 17, 25, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  animation: tooltipFade 140ms ease-out;
+}
+
+.map-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.map-legend__glyph {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 22, 32, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.map-legend__item--annex-target .map-legend__glyph,
+.map-legend__item--capital-choice .map-legend__glyph {
+  border-color: rgba(105, 192, 136, 0.78);
+  color: #bdecd0;
+}
+
+.map-legend__item--transfer-target .map-legend__glyph {
+  border-color: rgba(118, 212, 242, 0.78);
+  color: #caeefc;
+}
+
+.map-legend__item--attack-target .map-legend__glyph {
+  border-color: rgba(241, 169, 93, 0.8);
+  color: #ffd9ba;
+}
+
+.map-legend__item--capital-forbidden .map-legend__glyph {
+  border-color: rgba(213, 97, 77, 0.7);
+  color: #ffb3a2;
+}
+
+.map-legend__item--card-targetable .map-legend__glyph {
+  border-color: rgba(208, 124, 255, 0.78);
+  color: #f0d0ff;
+}
+
+.map-legend__item--source-candidate .map-legend__glyph {
+  border-color: color-mix(in srgb, var(--theme-accent) 60%, rgba(255, 255, 255, 0.2));
+  color: color-mix(in srgb, var(--theme-accent) 75%, white);
+}
+
+.map-legend__item--capital .map-legend__glyph {
+  border-color: rgba(209, 175, 112, 0.78);
+  color: #f5e0a9;
 }
 
 .map-tooltip {

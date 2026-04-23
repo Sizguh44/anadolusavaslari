@@ -6,6 +6,7 @@ import { BoardCornerActions } from './ui/hud/BoardCornerActions'
 import { CityPopover } from './ui/hud/CityPopover'
 import { Dialog } from './ui/hud/Dialog'
 import { EventStream } from './ui/hud/EventStream'
+import { MapLegend } from './ui/hud/MapLegend'
 import { StatPill } from './ui/hud/StatPill'
 import { HomeScreen } from './ui/screens/HomeScreen'
 import { SetupScreen } from './ui/screens/SetupScreen'
@@ -23,6 +24,7 @@ import {
   getAttackSourceIds,
   getAttackTargetIdsForSource,
   getCapitalForbiddenIds,
+  getCardTargetIds,
   getCityEspionageLock,
   getCityOwnerLabel,
   getCurrentPreview,
@@ -164,6 +166,11 @@ export default function App() {
     [state],
   )
   const capitalForbiddenIds = useMemo(() => getCapitalForbiddenIds(state), [state])
+  const pendingCardType = state.pendingCardUse?.type ?? null
+  const cardTargetIds = useMemo(
+    () => (pendingCardType ? getCardTargetIds(state, pendingCardType) : []),
+    [state, pendingCardType],
+  )
 
   const currentPlayerState = state.players[state.currentPlayer]
   const currentIncome = getPlayerIncome(state, state.currentPlayer)
@@ -383,11 +390,10 @@ export default function App() {
   const modeCancelable = isModePillCancelable(state)
   const endTurnPrimary = isEndTurnPrimary(state)
   const modeLabel = getModeSummary(state)
-  const modeMeta = modeCancelable
-    ? 'İptal için tıkla'
-    : state.conquestUsed
-      ? 'Ana hamle tükendi'
-      : 'Ana hamle hazır'
+  // Faz/hamle durumu yalnızca Aktif Oyuncu meta'sında (phaseSummary) yaşar.
+  // Mod pill meta'sı sadece "iptal edilebilir" bağlamını taşır; aksi halde
+  // gizli — böylece aynı bilgi iki yerde görünmez.
+  const modeMeta = modeCancelable ? 'İptal için tıkla' : undefined
 
   return (
     <div className="app-shell" data-player={state.currentPlayer}>
@@ -421,7 +427,7 @@ export default function App() {
             isPinned={isCityPopoverPinned}
             tags={selectedCityActionTags}
             emptyPlaceholder={emptyCityPlaceholder}
-            emptyMeta={secondaryHint ?? 'Haritadan seç'}
+            emptyMeta="Haritadan tıkla"
             onHoverChange={setIsCityPopoverHovered}
             onTogglePin={() => setIsCityPopoverPinned((current) => !current)}
           />
@@ -464,11 +470,15 @@ export default function App() {
           validAttackTargetIds={validAttackTargetIds}
           validCapitalForbiddenIds={capitalForbiddenIds}
           globalAnnexableTargetIds={globalAnnexableTargetIds}
+          pendingCardType={pendingCardType}
+          cardTargetIds={cardTargetIds}
           playerNames={names}
           onCitySelect={handleCitySelect}
           onMapBackgroundClick={handleMapBackgroundClick}
           contextCard={contextCard}
         />
+
+        <MapLegend stage={state.stage} actionMode={state.actionMode} pendingCardType={pendingCardType} />
 
         <BoardCornerActions
           stage={state.stage}
