@@ -8,6 +8,7 @@ import {
   type CardType,
 } from '../game/cards'
 import type { GameState, PlayerId } from '../game/types'
+import { CloseGlyph, IconButton } from './hud/IconButton'
 import { useFocusTrap, useInertBackground } from './hud/useFocusTrap'
 
 interface CardsDialogProps {
@@ -92,9 +93,9 @@ export function CardsDialog({
                 İptal
               </button>
             ) : null}
-            <button className="button button--ghost button--compact" onClick={onClose}>
-              Kapat
-            </button>
+            <IconButton onClick={onClose} ariaLabel="Kart panelini kapat">
+              <CloseGlyph />
+            </IconButton>
           </div>
         </header>
 

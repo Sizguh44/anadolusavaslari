@@ -1177,31 +1177,173 @@ p {
   }
 }
 
+/* ─── Maç sonu zafer kartı ─────────────────────────────────────────── */
 .victory-card {
+  width: min(560px, calc(100vw - 2rem));
   background:
-    radial-gradient(circle at top, rgba(209, 175, 112, 0.18), transparent 40%),
+    radial-gradient(circle at top, rgba(209, 175, 112, 0.16), transparent 45%),
     linear-gradient(180deg, rgba(16, 27, 37, 0.96), rgba(8, 16, 24, 0.98));
   border-color: rgba(209, 175, 112, 0.28);
   text-align: center;
 }
 
-.victory-card h2 {
+/* Kazanan rengiyle uyumlu hafif vurgu — renk-dışı sinyal: bordür tonu +
+   üst halka + glow. Tek bakışta "kim kazandı" belli olur. */
+.victory-card--p1 {
+  border-color: rgba(63, 128, 255, 0.42);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.42),
+    0 0 60px rgba(63, 128, 255, 0.18);
+}
+
+.victory-card--p1 .victory-card__winner {
+  color: #cfe1ff;
+  text-shadow: 0 0 24px rgba(63, 128, 255, 0.34);
+}
+
+.victory-card--p2 {
+  border-color: rgba(213, 97, 77, 0.45);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.42),
+    0 0 60px rgba(213, 97, 77, 0.18);
+}
+
+.victory-card--p2 .victory-card__winner {
+  color: #ffd5cc;
+  text-shadow: 0 0 24px rgba(213, 97, 77, 0.36);
+}
+
+.victory-card__winner {
   margin-top: 0.4rem;
-  font-size: clamp(2.4rem, 5vw, 3.5rem);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  letter-spacing: 0.01em;
 }
 
 .victory-card__lead {
-  margin-top: 0.9rem;
+  margin-top: 0.65rem;
+  color: rgba(220, 226, 238, 0.86);
+  line-height: 1.55;
+  font-size: 0.94rem;
+}
+
+.victory-card__duration {
+  margin-top: 0.85rem;
   color: var(--muted);
-  line-height: 1.6;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+}
+
+.victory-card__duration strong {
+  color: #f5e0a9;
+  font-weight: 700;
+  margin-right: 0.18rem;
+}
+
+.victory-card__duration-sep {
+  margin: 0 0.55rem;
+  color: rgba(180, 196, 210, 0.42);
+}
+
+.victory-card__compare {
+  margin-top: 1.1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(233, 240, 245, 0.08);
+  background: rgba(11, 22, 32, 0.6);
+  overflow: hidden;
+}
+
+.victory-card__compare-head,
+.victory-card__compare-row {
+  display: grid;
+  grid-template-columns: minmax(78px, 1fr) 1fr 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.victory-card__compare-head {
+  border-bottom: 1px solid rgba(233, 240, 245, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.victory-card__compare-row + .victory-card__compare-row {
+  border-top: 1px solid rgba(233, 240, 245, 0.06);
+}
+
+.victory-card__compare-label {
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  color: rgba(200, 210, 225, 0.62);
+  font-weight: 600;
+}
+
+.victory-card__compare-value {
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.victory-card__player {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.victory-card__player--p1,
+.victory-card__compare-value--p1 {
+  color: #b9d2ff;
+}
+
+.victory-card__player--p2,
+.victory-card__compare-value--p2 {
+  color: #ffc7bd;
+}
+
+/* Kazanan tarafın değer hücresi hafif vurgu alır — renk-dışı kalın yazıyla
+   da ayrışır (font-weight zaten 700). */
+.victory-card--p1 .victory-card__compare-value--p1 {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(63, 128, 255, 0.28);
+}
+
+.victory-card--p2 .victory-card__compare-value--p2 {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(213, 97, 77, 0.3);
 }
 
 .victory-card__actions {
-  margin-top: 1.2rem;
+  margin-top: 1.25rem;
   display: flex;
   justify-content: center;
-  gap: 0.8rem;
+  gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .victory-card__compare-head,
+  .victory-card__compare-row {
+    grid-template-columns: minmax(64px, 0.9fr) 1fr 1fr;
+    padding: 0.5rem 0.7rem;
+  }
+
+  .victory-card__compare-value {
+    font-size: 0.92rem;
+  }
+
+  .victory-card__actions {
+    flex-direction: column;
+  }
+
+  .victory-card__actions .button {
+    width: 100%;
+  }
 }
 
 .empty-state {

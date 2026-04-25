@@ -4,6 +4,8 @@ import { VolumeControl } from './ui/topbar/VolumeControl'
 import { CardsDialog } from './ui/CardsDialog'
 import { BoardCornerActions } from './ui/hud/BoardCornerActions'
 import { FirstRunHint } from './ui/hud/FirstRunHint'
+import { CloseGlyph, IconButton } from './ui/hud/IconButton'
+import { VictoryDialog } from './ui/hud/VictoryDialog'
 import { CityPopover } from './ui/hud/CityPopover'
 import { Dialog } from './ui/hud/Dialog'
 import { EventStream } from './ui/hud/EventStream'
@@ -518,9 +520,9 @@ export default function App() {
               <p className="section-eyebrow">Olay Günlüğü</p>
               <h2>Son kararlar</h2>
             </div>
-            <button className="button button--ghost button--compact" onClick={() => setIsLogOpen(false)}>
-              Kapat
-            </button>
+            <IconButton onClick={() => setIsLogOpen(false)} ariaLabel="Olay günlüğünü kapat">
+              <CloseGlyph />
+            </IconButton>
           </div>
           <EventStream events={state.events} playerNames={names} />
         </Dialog>
@@ -533,9 +535,9 @@ export default function App() {
               <p className="section-eyebrow">Oyun Menüsü</p>
               <h2>Hızlı işlemler</h2>
             </div>
-            <button className="button button--ghost button--compact" onClick={() => setIsMenuOpen(false)}>
-              Kapat
-            </button>
+            <IconButton onClick={() => setIsMenuOpen(false)} ariaLabel="Menüyü kapat">
+              <CloseGlyph />
+            </IconButton>
           </div>
           <div className="menu-stack">
             <button className="button button--primary" onClick={() => { setIsMenuOpen(false); dispatch({ type: 'START_SETUP' }) }}>
@@ -573,31 +575,21 @@ export default function App() {
         />
       ) : null}
 
-      {state.stage === 'GAME_OVER' && state.winner && state.victorySummary ? (
-        <Dialog className="victory-card" ariaLabel="Savaş sonu — Büyük Zafer">
-          <p className="section-eyebrow">Büyük Zafer</p>
-          <h2>{names[state.winner]}</h2>
-          <p className="victory-card__lead">
-            {state.victorySummary.cityName} başkenti düştü. {state.victorySummary.attackingCityName} şehrinden çıkan
-            {` ${state.victorySummary.attackAmount}`} birlikten {state.victorySummary.survivors} kadarı şehri ele
-            geçirerek savaşı bitirdi.
-          </p>
-          <div className="victory-card__actions">
-            <button className="button button--primary" onClick={() => dispatch({ type: 'START_SETUP' })}>
-              Yeni savaşa başla
-            </button>
-            <button
-              className="button button--ghost"
-              onClick={() => {
-                clearSavedGame()
-                dispatch({ type: 'RETURN_HOME' })
-              }}
-            >
-              Ana sayfa
-            </button>
-          </div>
-        </Dialog>
-      ) : null}
+      <VictoryDialog
+        state={state}
+        onRematch={() => {
+          playClickSfx()
+          dispatch({ type: 'START_NEW_GAME' })
+        }}
+        onNewGame={() => {
+          playClickSfx()
+          dispatch({ type: 'START_SETUP' })
+        }}
+        onHome={() => {
+          clearSavedGame()
+          dispatch({ type: 'RETURN_HOME' })
+        }}
+      />
     </div>
   )
 }

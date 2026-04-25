@@ -2,8 +2,15 @@
 // Bu dosya saf fonksiyonlar içerir; reducer'ı değiştirmez. UI bileşenleri
 // bu seçicileri çağırarak aynı cümle ve ipucu havuzundan beslenir.
 
-import { CITY_ARMY_LIMIT, CITY_FORT_LIMIT, getModeLabel } from './state'
-import type { ActionMode, CityState, GameState } from './types'
+import {
+  CITY_ARMY_LIMIT,
+  CITY_FORT_LIMIT,
+  getModeLabel,
+  getPlayerCityCount,
+  getPlayerInvestmentCount,
+  getRoundNumber,
+} from './state'
+import type { ActionMode, CityState, GameState, PlayerId } from './types'
 
 export function getTurnBanner(state: GameState): string {
   const names = state.playerNames
@@ -266,3 +273,81 @@ export function isModePillCancelable(state: GameState): boolean {
 }
 
 export type ActionModeLike = ActionMode | null
+
+// ─── Maç sonu özet seçicileri ───────────────────────────────────────────────
+
+export interface MatchSummaryStat {
+  label: string
+  /** P1 ve P2 değerleri yan yana karşılaştırma için. */
+  p1: string
+  p2: string
+}
+
+export interface MatchSummary {
+  /** Toplam tur sayısı (raund × 2 üst sınırlı). */
+  totalTurns: number
+  /** Toplam raund sayısı. */
+  totalRounds: number
+  stats: MatchSummaryStat[]
+}
+
+/**
+ * Maç sonu için saf özet — yalnızca state okur, hiçbir şey yazmaz.
+ * 3 satırlık karşılaştırma kartı için yeterli; tablo şişirmez.
+ */
+export function getMatchSummary(state: GameState): MatchSummary {
+  const totalTurns = state.turn
+  const totalRounds = getRoundNumber(state.turn)
+  const p1Cities = getPlayerCityCount(state, 'P1')
+  const p2Cities = getPlayerCityCount(state, 'P2')
+  const p1Treasury = state.players.P1.treasury
+  const p2Treasury = state.players.P2.treasury
+  const p1Invested = getPlayerInvestmentCount(state, 'P1')
+  const p2Invested = getPlayerInvestmentCount(state, 'P2')
+
+  return {
+    totalTurns,
+    totalRounds,
+    stats: [
+      {
+        label: 'Şehir',
+        p1: `${p1Cities}`,
+        p2: `${p2Cities}`,
+      },
+      {
+        label: 'Kasa',
+        p1: `${p1Treasury}₳`,
+        p2: `${p2Treasury}₳`,
+      },
+      {
+        label: 'Yatırım',
+        p1: `${p1Invested}`,
+        p2: `${p2Invested}`,
+      },
+    ],
+  }
+}
+
+/**
+ * Maç sonu için tek satırlık dramatik özet. Tüm parçalar state'ten güvenli
+ * çıkarılır; uydurma yok.
+ */
+export function getVictoryNarrative(state: GameState): string {
+  if (state.stage !== 'GAME_OVER' || !state.winner || !state.victorySummary) {
+    return ''
+  }
+
+  const winner = state.playerNames[state.winner]
+  const round = getRoundNumber(state.turn)
+  const summary = state.victorySummary
+
+  return `${winner}, ${round}. raundda ${summary.attackingCityName} şehrinden çıkardığı ${summary.attackAmount} birlikle ${summary.cityName} başkentini düşürdü.`
+}
+
+/**
+ * Hangi oyuncu kazandı? UI tonlama için P1/P2 döner.
+ * (Convenience — state.winner ile birebir aynı; tip stringi okuru rahatlatır.)
+ */
+export function getWinner(state: GameState): PlayerId | null {
+  return state.stage === 'GAME_OVER' ? state.winner : null
+}
