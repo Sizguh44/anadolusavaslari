@@ -34,8 +34,8 @@ export function getActionPrompt(
 
   if (!state.actionMode) {
     return state.conquestUsed
-      ? 'Ana fetih hakkı kullanıldı. Takviye yapabilir veya turu bitirebilirsin.'
-      : 'Bir şehir seç ve harita kartından aksiyon başlat.'
+      ? 'Ana hamle bitti. Takviye yapabilir veya turu bitirebilirsin.'
+      : 'Bir şehir seç; üzerine açılan panelden hamleni başlat.'
   }
 
   if (state.actionMode === 'ANNEX') {
@@ -47,7 +47,7 @@ export function getActionPrompt(
 
   if (state.actionMode === 'TRANSFER') {
     if (!sourceCity) {
-      return 'İntikal için kaynak şehir seç.'
+      return 'İntikal için kendi şehirlerinden birini kaynak seç.'
     }
     if (!targetCity) {
       return `${sourceCity.name} kaynağından dost bir hedef seç.`
@@ -56,11 +56,11 @@ export function getActionPrompt(
   }
 
   if (!sourceCity) {
-    return 'Saldırı için kaynak şehir seç.'
+    return 'Saldırı için kendi şehirlerinden birini kaynak seç.'
   }
 
   if (!targetCity) {
-    return `${sourceCity.name} hazır. Komşu düşman hedef seç.`
+    return `${sourceCity.name} hazır. Komşu düşman şehre tıkla.`
   }
 
   return `${sourceCity.name} → ${targetCity.name} için gücü ayarla ve onayla.`
@@ -236,8 +236,8 @@ export function getSecondaryHint(state: GameState): string | null {
     return 'ESC veya Temizle ile aksiyonu iptal edebilirsin.'
   }
 
-  // conquestUsed durumunda primary zaten "Ana fetih hakkı kullanıldı. Takviye
-  // yapabilir veya turu bitirebilirsin." diyor — ikinci satır tekrar olmasın.
+  // conquestUsed durumunda primary zaten "Ana hamle bitti. Takviye yapabilir
+  // veya turu bitirebilirsin." diyor — ikinci satır tekrar olmasın.
   if (state.conquestUsed) {
     return null
   }

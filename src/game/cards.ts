@@ -21,6 +21,8 @@ export interface CardDefinition {
   duration: string
   usageConstraint: string
   singleUse: boolean
+  /** "Ne zaman mantıklı?" — kısa stratejik ipucu, yeni oyuncuya yardım eder. */
+  whenToUse: string
 }
 
 // ─── Sabitler ─────────────────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export const CARD_CATALOG: Record<CardType, CardDefinition> = {
     duration: '1 tur',
     usageConstraint: 'Aktif casus etkisi bulunan şehre tekrar uygulanamaz.',
     singleUse: true,
+    whenToUse: 'Saldırmadan önce; rakip ordusunu hafifletip kayıpları azaltır.',
   },
   KUNDAKLAMA: {
     id: 'KUNDAKLAMA',
@@ -65,6 +68,7 @@ export const CARD_CATALOG: Record<CardType, CardDefinition> = {
     duration: 'Anlık',
     usageConstraint: 'Hedefin en az bir dost komşu şehri bulunmalı.',
     singleUse: true,
+    whenToUse: 'Surları yüksek başkent veya kilit şehri yumuşatmak için.',
   },
   KUDRET: {
     id: 'KUDRET',
@@ -75,6 +79,7 @@ export const CARD_CATALOG: Record<CardType, CardDefinition> = {
     duration: 'Bu tur',
     usageConstraint: 'Aynı tur içinde yalnızca bir kez kullanılabilir.',
     singleUse: true,
+    whenToUse: 'İki saldırıyı tek turda kuracak fırsat varken.',
   },
   YATIRIM: {
     id: 'YATIRIM',
@@ -86,6 +91,7 @@ export const CARD_CATALOG: Record<CardType, CardDefinition> = {
     duration: 'Kalıcı',
     usageConstraint: 'Bir şehirde tek kez; her oyuncu en fazla 5 şehirde kullanabilir.',
     singleUse: true,
+    whenToUse: 'Erken oyunda yüksek vergili şehirde; uzun vadede kasayı çoğaltır.',
   },
 }
 

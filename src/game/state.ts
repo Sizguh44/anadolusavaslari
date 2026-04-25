@@ -957,7 +957,7 @@ function setActionMode(state: GameState, mode: ActionMode): GameState {
 
   if (mode === 'ANNEX') {
     if (state.conquestUsed) {
-      return withStatus(state, 'Bu tur ana fetih aksiyonu zaten kullanıldı.', 'warning')
+      return withStatus(state, 'Bu tur ana hamle hakkı zaten kullanıldı.', 'warning')
     }
 
     if (!canCurrentPlayerExpand(state)) {
@@ -976,7 +976,7 @@ function setActionMode(state: GameState, mode: ActionMode): GameState {
   }
 
   if (!hasAttackOpportunity(state)) {
-    return withStatus(state, 'Bu tur ana fetih aksiyonu zaten kullanıldı.', 'warning')
+    return withStatus(state, 'Bu tur ana hamle hakkı zaten kullanıldı.', 'warning')
   }
 
   if (!canCurrentPlayerAttack(state)) {
@@ -988,7 +988,7 @@ function setActionMode(state: GameState, mode: ActionMode): GameState {
 
 function confirmAnnex(state: GameState): GameState {
   if (state.conquestUsed) {
-    return withStatus(state, 'Bu tur ilhak veya saldırı hakkınız kalmadı.')
+    return withStatus(state, 'Bu tur ana hamle hakkı kalmadı.')
   }
 
   const source = getCity(state, state.actionSourceCityId)
@@ -1148,7 +1148,7 @@ function consumeAttackOpportunity(state: GameState): {
 
 function confirmAttack(state: GameState): GameState {
   if (!hasAttackOpportunity(state)) {
-    return withStatus(state, 'Bu tur ana fetih aksiyonu zaten kullanıldı.')
+    return withStatus(state, 'Bu tur ana hamle hakkı zaten kullanıldı.')
   }
 
   const source = getCity(state, state.actionSourceCityId)

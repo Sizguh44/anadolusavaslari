@@ -26,6 +26,20 @@ function formatTargetKind(definition: CardDefinition): string {
   return 'Rakip şehir'
 }
 
+/** Kart başlığı için renk-tonu — InfoTag dilini takip eder. */
+function cardToneClass(cardType: CardType): string {
+  switch (cardType) {
+    case 'CASUS':
+      return 'card-column--espionage'
+    case 'KUNDAKLAMA':
+      return 'card-column--attack'
+    case 'KUDRET':
+      return 'card-column--capital'
+    case 'YATIRIM':
+      return 'card-column--investment'
+  }
+}
+
 export function CardsDialog({
   state,
   activePlayer,
@@ -106,9 +120,12 @@ export function CardsDialog({
                 : null
 
             return (
-              <article key={cardType} className="card-column">
+              <article key={cardType} className={`card-column ${cardToneClass(cardType)}`.trim()}>
                 <div className="card-column__head">
-                  <h3>{definition.name}</h3>
+                  <div className="card-column__title">
+                    <h3>{definition.name}</h3>
+                    <span className="card-column__target">{formatTargetKind(definition)}</span>
+                  </div>
                   <span className="card-column__count" data-empty={count === 0 ? 'true' : undefined}>
                     ×{count}
                   </span>
@@ -116,11 +133,11 @@ export function CardsDialog({
 
                 <p className="card-column__desc">{definition.description}</p>
 
+                <p className="card-column__when">
+                  <span className="card-column__when-label">Ne zaman?</span> {definition.whenToUse}
+                </p>
+
                 <dl className="card-column__meta">
-                  <div>
-                    <dt>Hedef</dt>
-                    <dd>{formatTargetKind(definition)}</dd>
-                  </div>
                   <div>
                     <dt>Süre</dt>
                     <dd>{definition.duration}</dd>

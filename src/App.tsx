@@ -3,6 +3,7 @@ import { TurkeyMapBoard, type MapContextCard } from './ui/TurkeyMapBoard'
 import { VolumeControl } from './ui/topbar/VolumeControl'
 import { CardsDialog } from './ui/CardsDialog'
 import { BoardCornerActions } from './ui/hud/BoardCornerActions'
+import { FirstRunHint } from './ui/hud/FirstRunHint'
 import { CityPopover } from './ui/hud/CityPopover'
 import { Dialog } from './ui/hud/Dialog'
 import { EventStream } from './ui/hud/EventStream'
@@ -490,6 +491,7 @@ export default function App() {
         />
 
         <MapLegend stage={state.stage} actionMode={state.actionMode} pendingCardType={pendingCardType} />
+        <FirstRunHint stage={state.stage} turn={state.turn} />
 
         <BoardCornerActions
           stage={state.stage}
